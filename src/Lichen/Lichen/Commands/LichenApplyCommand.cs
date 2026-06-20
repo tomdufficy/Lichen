@@ -1,9 +1,8 @@
-﻿using Rhino;
+﻿using Lichen.Core;
+using Rhino;
 using Rhino.Commands;
-using Rhino.Geometry;
+using Rhino.DocObjects;
 using Rhino.Input;
-using Rhino.Input.Custom;
-using System;
 using System.Collections.Generic;
 
 namespace Lichen.Commands
@@ -12,55 +11,76 @@ namespace Lichen.Commands
     {
         public LichenApplyCommand()
         {
-            // Rhino only creates one instance of each command class defined in a
-            // plug-in, so it is safe to store a refence in a static property.
             Instance = this;
         }
 
-        ///<summary>The only instance of this command.</summary>
         public static LichenApplyCommand Instance { get; private set; }
 
-        ///<returns>The command name as it appears on the Rhino command line.</returns>
         public override string EnglishName => "LichenApply";
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
-            // TODO: start here modifying the behaviour of your command.
-            // ---
-            RhinoApp.WriteLine("The {0} command will add a line right now.", EnglishName);
+            var catalogue = LichenPlugin.Instance.Catalogue;
 
-            Point3d pt0;
-            using (GetPoint getPointAction = new GetPoint())
+            if (catalogue.Modules.Count == 0)
             {
-                getPointAction.SetCommandPrompt("Please select the start point");
-                if (getPointAction.Get() != GetResult.Point)
-                {
-                    RhinoApp.WriteLine("No start point was selected.");
-                    return getPointAction.CommandResult();
-                }
-                pt0 = getPointAction.Point();
+                RhinoApp.WriteLine("Lichen: no facade modules found. Use LichenList to check.");
+                return Result.Failure;
             }
 
-            Point3d pt1;
-            using (GetPoint getPointAction = new GetPoint())
+            // print available modules
+            RhinoApp.WriteLine("Lichen: available facade modules:");
+            for (int i = 0; i < catalogue.Modules.Count; i++)
             {
-                getPointAction.SetCommandPrompt("Please select the end point");
-                getPointAction.SetBasePoint(pt0, true);
-                getPointAction.DynamicDraw +=
-                  (sender, e) => e.Display.DrawLine(pt0, e.CurrentPoint, System.Drawing.Color.DarkRed);
-                if (getPointAction.Get() != GetResult.Point)
-                {
-                    RhinoApp.WriteLine("No end point was selected.");
-                    return getPointAction.CommandResult();
-                }
-                pt1 = getPointAction.Point();
+                RhinoApp.WriteLine("  {0}. {1}", i + 1, catalogue.Modules[i].Name);
             }
 
-            doc.Objects.AddLine(pt0, pt1);
-            doc.Views.Redraw();
-            RhinoApp.WriteLine("The {0} command added one line to the document.", EnglishName);
+            // ask user to pick a module by number
+            int moduleIndex = 0;
+            var getNumber = new Rhino.Input.Custom.GetInteger();
+            getNumber.SetCommandPrompt("Select facade module by number");
+            getNumber.SetLowerLimit(1, false);
+            getNumber.SetUpperLimit(catalogue.Modules.Count, false);
+            if (getNumber.Get() != Rhino.Input.GetResult.Number)
+            {
+                RhinoApp.WriteLine("Lichen: no module selected.");
+                return Result.Cancel;
+            }
+            moduleIndex = getNumber.Number() - 1;
 
-            // ---
+            FacadeModule selectedModule = catalogue.Modules[moduleIndex];
+            RhinoApp.WriteLine("Lichen: using module {0}", selectedModule.Name);
+
+            // ask user to select a volume
+            var getObject = new Rhino.Input.Custom.GetObject();
+            getObject.SetCommandPrompt("Select building volume(s)");
+            getObject.GeometryFilter = ObjectType.Brep;
+            getObject.GetMultiple(1, 0);
+
+            if (getObject.CommandResult() != Result.Success)
+            {
+                RhinoApp.WriteLine("Lichen: no volume selected.");
+                return Result.Cancel;
+            }
+
+            // process each selected volume
+            for (int i = 0; i < getObject.ObjectCount; i++)
+            {
+                var brep = getObject.Object(i).Brep();
+                if (brep == null) continue;
+
+                RhinoApp.WriteLine("Lichen: processing volume {0} of {1}", i + 1, getObject.ObjectCount);
+
+                var wallFaces = FacadePlacer.GetWallFaces(brep);
+                RhinoApp.WriteLine("Lichen: found {0} wall face(s)", wallFaces.Count);
+
+                foreach (var face in wallFaces)
+                {
+                    FacadePlacer.PlaceFacadesOnFace(doc, face, selectedModule);
+                }
+            }
+
+            RhinoApp.WriteLine("Lichen: done.");
             return Result.Success;
         }
     }
