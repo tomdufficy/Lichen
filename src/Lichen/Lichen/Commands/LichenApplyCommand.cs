@@ -21,7 +21,7 @@ namespace Lichen.Commands
         public static LichenApplyCommand Instance { get; private set; }
 
         ///<returns>The command name as it appears on the Rhino command line.</returns>
-        public override string EnglishName => "LichenApplyCommand";
+        public override string EnglishName => "LichenApply";
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
