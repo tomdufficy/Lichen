@@ -31,7 +31,7 @@ namespace Lichen.Core
             return wallFaces;
         }
 
-        public static void PlaceFacadesOnFace(RhinoDoc doc, BrepFace face, FacadeModule module)
+        public static void PlaceFacadesOnFace(RhinoDoc doc, BrepFace face, int blockDefIndex)
         {
             // build consistent axes from face normal and world Z
             Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
@@ -66,21 +66,15 @@ namespace Lichen.Core
                 + xAxis * (minX - Vector3d.Multiply(new Vector3d(faceCentre), xAxis))
                 + Vector3d.ZAxis * (minZ - faceCentre.Z);
 
-            // load module
-            Rhino.FileIO.File3dm moduleFile = Rhino.FileIO.File3dm.Read(module.FilePath);
-            if (moduleFile == null)
-            {
-                RhinoApp.WriteLine("Lichen: could not read facade file {0}", module.Name);
-                return;
-            }
-
+            // get block definition and measure its bounding box
+            var blockDef = doc.InstanceDefinitions[blockDefIndex];
             BoundingBox moduleBBox = BoundingBox.Empty;
-            foreach (var obj in moduleFile.Objects)
+            foreach (var obj in blockDef.GetObjects())
                 moduleBBox.Union(obj.Geometry.GetBoundingBox(true));
 
             if (!moduleBBox.IsValid)
             {
-                RhinoApp.WriteLine("Lichen: could not get bounding box for {0}", module.Name);
+                RhinoApp.WriteLine("Lichen: could not get bounding box for block");
                 return;
             }
 
@@ -89,7 +83,7 @@ namespace Lichen.Core
 
             if (moduleWidth <= 0 || moduleHeight <= 0)
             {
-                RhinoApp.WriteLine("Lichen: module {0} has zero size", module.Name);
+                RhinoApp.WriteLine("Lichen: block has zero size");
                 return;
             }
 
@@ -103,37 +97,29 @@ namespace Lichen.Core
             RhinoApp.WriteLine("Lichen: placing {0}x{1} panels on face", countX, countZ);
             RhinoApp.WriteLine("  stretch {0:F3} x {1:F3}", stretchX, stretchZ);
 
-            // module convention: face on XZ plane (Y=0), depth in -Y, up in +Z
-            // target: xAxis horizontal, normal outward, Z up
-            // we need module +Z to stay as world +Z, so we must not let
-            // PlaneToPlane flip it — build the target plane with Z explicit
-            Plane sourcePlane = new Plane(Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis);
-
-            // build target so X=xAxis, Y=normal, Z=ZAxis
-            // use the three-vector constructor to be explicit
+            // build orientation transform
+            Plane sourcePlane = Plane.WorldXY;
             Vector3d tX = xAxis;
             Vector3d tY = normal;
             Vector3d tZ = Vector3d.CrossProduct(tX, tY);
-            // tZ should equal world Z for vertical walls — if it points down, flip both
             if (tZ * Vector3d.ZAxis < 0)
             {
                 tZ = -tZ;
                 tY = -tY;
             }
-            Plane targetPlane = new Plane(
-                Point3d.Origin,
-                tX,
+            Plane targetPlane = new Plane(Point3d.Origin, tX,
                 Vector3d.CrossProduct(tZ, tX));
-
             Transform orient = Transform.PlaneToPlane(sourcePlane, targetPlane);
 
-            // module face sits at Y=0 — after orient, Y maps to normal direction
-            // module depth is in -Y so it goes into the wall correctly
-            // no Y offset needed since face is already at Y=0
+            // zero module to origin
             Transform moveToOrigin = Transform.Translation(
                 -moduleBBox.Min.X, 0.0, -moduleBBox.Min.Z);
 
+            // scale
             Transform scale = Transform.Scale(Plane.WorldXY, stretchX, 1.0, stretchZ);
+
+            var attribs = new Rhino.DocObjects.ObjectAttributes();
+            attribs.LayerIndex = doc.Layers.CurrentLayerIndex;
 
             for (int col = 0; col < countX; col++)
             {
@@ -147,12 +133,7 @@ namespace Lichen.Core
 
                     Transform full = translate * orient * scale * moveToOrigin;
 
-                    foreach (var obj in moduleFile.Objects)
-                    {
-                        GeometryBase geom = obj.Geometry.Duplicate();
-                        geom.Transform(full);
-                        doc.Objects.Add(geom);
-                    }
+                    doc.Objects.AddInstanceObject(blockDefIndex, full, attribs);
                 }
             }
 
