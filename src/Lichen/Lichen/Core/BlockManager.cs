@@ -19,6 +19,8 @@ namespace Lichen.Core
         private static readonly Color LichenGreen = ColorTranslator.FromHtml("#a2b190");
         private static readonly Color LichenSlate = ColorTranslator.FromHtml("#566167");
 
+        // ─── layer setup ────────────────────────────────────────────────────────
+
         private static void EnsureLayers(RhinoDoc doc, out int mastersIndex, out int adminIndex)
         {
             int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
@@ -28,8 +30,7 @@ namespace Lichen.Core
 
         public static void EnsureLayers(RhinoDoc doc)
         {
-            int mastersIndex, adminIndex;
-            EnsureLayers(doc, out mastersIndex, out adminIndex);
+            EnsureLayers(doc, out _, out _);
         }
 
         private static int EnsureLayer(RhinoDoc doc, string name, Color color, int parentIndex)
@@ -38,33 +39,65 @@ namespace Lichen.Core
                 ? doc.Layers[parentIndex].FullPath + "::" + name
                 : name;
 
-            Layer existing = doc.Layers.FindName(fullName);
-            if (existing != null) return existing.Index;
+            // FindByFullPath is exact — avoids matching a layer with the same
+            // short name but a different parent
+            int found = doc.Layers.FindByFullPath(fullName, -1);
+            if (found >= 0) return found;
 
-            Layer layer = new Layer();
-            layer.Name = name;
-            layer.Color = color;
-            if (parentIndex >= 0) layer.ParentLayerId = doc.Layers[parentIndex].Id;
+            var layer = new Layer { Name = name, Color = color };
+            if (parentIndex >= 0)
+                layer.ParentLayerId = doc.Layers[parentIndex].Id;
 
             return doc.Layers.Add(layer);
         }
+
+        // ─── block existence check ───────────────────────────────────────────────
 
         public static bool BlockExists(RhinoDoc doc, string moduleName)
         {
             return doc.InstanceDefinitions.Find(moduleName) != null;
         }
 
+        // ─── block import with layer preservation ────────────────────────────────
+
         public static int ImportBlock(RhinoDoc doc, FacadeModule module)
         {
             var existingDef = doc.InstanceDefinitions.Find(module.Name);
             if (existingDef != null) return existingDef.Index;
 
-            Rhino.FileIO.File3dm moduleFile = Rhino.FileIO.File3dm.Read(module.FilePath);
+            var moduleFile = Rhino.FileIO.File3dm.Read(module.FilePath);
             if (moduleFile == null)
             {
                 RhinoApp.WriteLine("Lichen: could not read module file {0}", module.Name);
                 return -1;
             }
+
+            // ── build a host-doc layer for each source layer, record the remap ──
+            //
+            //  Source layer indices are meaningless in the host doc. We create a
+            //  parent layer "Lichen::Facades::<ModuleName>" and nest every source
+            //  layer beneath it, then remap each object's LayerIndex before adding
+            //  it to the block definition.
+
+            string parentPath = "Lichen::Facades::" + module.Name;
+
+            // Ensure Lichen and Lichen::Facades exist first
+            int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            int facadesIdx = EnsureLayer(doc, "Facades", LichenGreen, lichenIdx);
+            int parentIdx = EnsureLayer(doc, module.Name, LichenGreen, facadesIdx);
+
+            // Map sourceLayerIndex → hostLayerIndex
+            var layerRemap = new Dictionary<int, int>();
+            foreach (var srcLayer in moduleFile.AllLayers)
+            {
+                // nest every source layer flat under the module parent
+                // (preserving names but not sub-hierarchy, which is usually
+                //  just "Default" in simple facade files)
+                int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, parentIdx);
+                layerRemap[srcLayer.Index] = hostIdx;
+            }
+
+            // ── collect geometry, remapping layer indices ────────────────────────
 
             var geometries = new List<GeometryBase>();
             var attributes = new List<ObjectAttributes>();
@@ -72,8 +105,16 @@ namespace Lichen.Core
             foreach (var obj in moduleFile.Objects)
             {
                 if (obj.Geometry == null) continue;
+
+                var attr = obj.Attributes.Duplicate();
+
+                if (layerRemap.TryGetValue(attr.LayerIndex, out int remapped))
+                    attr.LayerIndex = remapped;
+                else
+                    attr.LayerIndex = parentIdx; // fallback
+
                 geometries.Add(obj.Geometry.Duplicate());
-                attributes.Add(obj.Attributes.Duplicate());
+                attributes.Add(attr);
             }
 
             if (geometries.Count == 0)
@@ -90,72 +131,73 @@ namespace Lichen.Core
                 attributes);
 
             if (defIndex < 0)
-            {
                 RhinoApp.WriteLine("Lichen: failed to create block definition for {0}", module.Name);
-                return -1;
-            }
+            else
+                RhinoApp.WriteLine("Lichen: imported block definition {0}", module.Name);
 
-            RhinoApp.WriteLine("Lichen: imported block definition {0}", module.Name);
             return defIndex;
         }
 
+        // ─── master placement ────────────────────────────────────────────────────
+
         public static void PlaceMaster(RhinoDoc doc, FacadeModule module, int blockDefIndex)
         {
-            int mastersLayerIndex, adminLayerIndex;
-            EnsureLayers(doc, out mastersLayerIndex, out adminLayerIndex);
+            EnsureLayers(doc, out int mastersLayerIndex, out int adminLayerIndex);
 
-            int masterCount = CountExistingMasters(doc);
+            // Count existing masters BEFORE placing the new one
+            int masterCount = CountExistingMasters(doc, mastersLayerIndex);
 
             double boxMinX = masterCount * BoxSize;
             double boxMaxX = boxMinX + BoxSize;
             double boxMinY = BoxStartY;
             double boxMaxY = BoxStartY + BoxSize;
 
-            // bounding box rectangle
-            Point3d boxBL = new Point3d(boxMinX, boxMinY, 0);
-            Point3d boxBR = new Point3d(boxMaxX, boxMinY, 0);
-            Point3d boxTR = new Point3d(boxMaxX, boxMaxY, 0);
-            Point3d boxTL = new Point3d(boxMinX, boxMaxY, 0);
-
-            var boxPts = new Point3d[] { boxBL, boxBR, boxTR, boxTL, boxBL };
+            // ── bounding box rectangle ───────────────────────────────────────────
+            var boxPts = new Point3d[]
+            {
+                new Point3d(boxMinX, boxMinY, 0),
+                new Point3d(boxMaxX, boxMinY, 0),
+                new Point3d(boxMaxX, boxMaxY, 0),
+                new Point3d(boxMinX, boxMaxY, 0),
+                new Point3d(boxMinX, boxMinY, 0)   // close
+            };
             var boxCurve = new Rhino.Geometry.Polyline(boxPts).ToNurbsCurve();
 
-            var adminAttribs = new ObjectAttributes();
-            adminAttribs.LayerIndex = adminLayerIndex;
+            var adminAttribs = new ObjectAttributes { LayerIndex = adminLayerIndex };
             doc.Objects.AddCurve(boxCurve, adminAttribs);
 
-            // dotted line at facade face (Y = box centre)
+            // ── facade face line (dotted) ────────────────────────────────────────
             double facadeY = BoxStartY + BoxSize / 2.0;
-            Point3d lineStart = new Point3d(boxMinX, facadeY, 0);
-            Point3d lineEnd = new Point3d(boxMaxX, facadeY, 0);
-            var facadeLine = new LineCurve(lineStart, lineEnd);
+            var facadeLine = new LineCurve(
+                new Point3d(boxMinX, facadeY, 0),
+                new Point3d(boxMaxX, facadeY, 0));
 
-            var lineAttribs = new ObjectAttributes();
-            lineAttribs.LayerIndex = adminLayerIndex;
-            lineAttribs.LinetypeSource = ObjectLinetypeSource.LinetypeFromObject;
-            lineAttribs.LinetypeIndex = GetOrCreateDottedLinetype(doc);
+            var lineAttribs = new ObjectAttributes
+            {
+                LayerIndex = adminLayerIndex,
+                LinetypeSource = ObjectLinetypeSource.LinetypeFromObject,
+                LinetypeIndex = GetOrCreateDottedLinetype(doc)
+            };
             doc.Objects.AddCurve(facadeLine, lineAttribs);
 
+            // ── labels ───────────────────────────────────────────────────────────
             double labelOffset = 500.0;
 
-            // outside text — 500mm above dotted line, vertically centred
             AddText(doc, "outside",
                 new Point3d(boxMinX + 200, facadeY + labelOffset, 0),
                 AdminTextHeight, adminLayerIndex);
 
-            // inside text — 500mm below dotted line, vertically centred
             AddText(doc, "inside",
                 new Point3d(boxMinX + 200, facadeY - labelOffset, 0),
                 AdminTextHeight, adminLayerIndex);
 
-            // module name — top left of box
             AddText(doc, module.Name,
                 new Point3d(boxMinX + 200, boxMaxY - 200, 0),
                 MasterTextHeight, adminLayerIndex);
 
-            // place master block standing up, face at facade line, centred in X
+            // ── master block instance ────────────────────────────────────────────
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
-            BoundingBox bbox = BoundingBox.Empty;
+            var bbox = BoundingBox.Empty;
             foreach (var obj in blockDef.GetObjects())
                 bbox.Union(obj.Geometry.GetBoundingBox(true));
 
@@ -165,24 +207,23 @@ namespace Lichen.Core
             double offsetY = facadeY - bbox.Min.Y;
             double offsetZ = -bbox.Min.Z;
 
-            Transform masterTransform = Transform.Translation(offsetX, offsetY, offsetZ);
-
-            var masterAttribs = new ObjectAttributes();
-            masterAttribs.LayerIndex = mastersLayerIndex;
-            doc.Objects.AddInstanceObject(blockDefIndex, masterTransform, masterAttribs);
+            var masterAttribs = new ObjectAttributes { LayerIndex = mastersLayerIndex };
+            doc.Objects.AddInstanceObject(
+                blockDefIndex,
+                Transform.Translation(offsetX, offsetY, offsetZ),
+                masterAttribs);
 
             RhinoApp.WriteLine("Lichen: placed master for {0}", module.Name);
         }
 
-        private static int CountExistingMasters(RhinoDoc doc)
-        {
-            var mastersLayer = doc.Layers.FindName(MasterLayerName);
-            if (mastersLayer == null) return 0;
+        // ─── helpers ─────────────────────────────────────────────────────────────
 
+        private static int CountExistingMasters(RhinoDoc doc, int mastersLayerIndex)
+        {
             int count = 0;
             foreach (var obj in doc.Objects)
             {
-                if (obj.Attributes.LayerIndex == mastersLayer.Index
+                if (obj.Attributes.LayerIndex == mastersLayerIndex
                     && obj is InstanceObject)
                     count++;
             }
@@ -193,28 +234,28 @@ namespace Lichen.Core
             double height, int layerIndex)
         {
             var plane = new Plane(location, Vector3d.ZAxis);
-            var textEntity = new Rhino.Geometry.TextEntity();
-            textEntity.Plane = plane;
-            textEntity.PlainText = text;
-            textEntity.TextHeight = height;
-            textEntity.TextVerticalAlignment = TextVerticalAlignment.Middle;
+            var textEntity = new Rhino.Geometry.TextEntity
+            {
+                Plane = plane,
+                PlainText = text,
+                TextHeight = height,
+                TextVerticalAlignment = TextVerticalAlignment.Middle
+            };
 
-            var attribs = new ObjectAttributes();
-            attribs.LayerIndex = layerIndex;
-            doc.Objects.AddText(textEntity, attribs);
+            doc.Objects.AddText(textEntity,
+                new ObjectAttributes { LayerIndex = layerIndex });
         }
 
         private static int GetOrCreateDottedLinetype(RhinoDoc doc)
         {
             for (int i = 0; i < doc.Linetypes.Count; i++)
             {
-                if (doc.Linetypes[i].Name.ToLower().Contains("dot")
-                    || doc.Linetypes[i].Name.ToLower().Contains("lichen"))
+                string n = doc.Linetypes[i].Name.ToLower();
+                if (n.Contains("dot") || n.Contains("lichen"))
                     return i;
             }
 
-            var linetype = new Linetype();
-            linetype.Name = "Lichen_Dotted";
+            var linetype = new Linetype { Name = "Lichen_Dotted" };
             linetype.AppendSegment(200.0, true);
             linetype.AppendSegment(200.0, false);
 
