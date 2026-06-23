@@ -147,10 +147,10 @@ namespace Lichen.Core
             // Count existing masters BEFORE placing the new one
             int masterCount = CountExistingMasters(doc, mastersLayerIndex);
 
-            double boxMinX = masterCount * BoxSize;
-            double boxMaxX = boxMinX + BoxSize;
-            double boxMinY = BoxStartY;
-            double boxMaxY = BoxStartY + BoxSize;
+            double boxMinX = 0;
+            double boxMaxX = BoxSize;
+            double boxMinY = BoxStartY - (masterCount * BoxSize);
+            double boxMaxY = boxMinY + BoxSize;
 
             // ── bounding box rectangle ───────────────────────────────────────────
             var boxPts = new Point3d[]
