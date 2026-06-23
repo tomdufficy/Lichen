@@ -39,8 +39,6 @@ namespace Lichen.Core
                 ? doc.Layers[parentIndex].FullPath + "::" + name
                 : name;
 
-            // FindByFullPath is exact — avoids matching a layer with the same
-            // short name but a different parent
             int found = doc.Layers.FindByFullPath(fullName, -1);
             if (found >= 0) return found;
 
@@ -72,32 +70,18 @@ namespace Lichen.Core
                 return -1;
             }
 
-            // ── build a host-doc layer for each source layer, record the remap ──
-            //
-            //  Source layer indices are meaningless in the host doc. We create a
-            //  parent layer "Lichen::Facades::<ModuleName>" and nest every source
-            //  layer beneath it, then remap each object's LayerIndex before adding
-            //  it to the block definition.
-
             string parentPath = "Lichen::Facades::" + module.Name;
 
-            // Ensure Lichen and Lichen::Facades exist first
             int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
             int facadesIdx = EnsureLayer(doc, "Facades", LichenGreen, lichenIdx);
             int parentIdx = EnsureLayer(doc, module.Name, LichenGreen, facadesIdx);
 
-            // Map sourceLayerIndex → hostLayerIndex
             var layerRemap = new Dictionary<int, int>();
             foreach (var srcLayer in moduleFile.AllLayers)
             {
-                // nest every source layer flat under the module parent
-                // (preserving names but not sub-hierarchy, which is usually
-                //  just "Default" in simple facade files)
                 int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, parentIdx);
                 layerRemap[srcLayer.Index] = hostIdx;
             }
-
-            // ── collect geometry, remapping layer indices ────────────────────────
 
             var geometries = new List<GeometryBase>();
             var attributes = new List<ObjectAttributes>();
@@ -111,7 +95,7 @@ namespace Lichen.Core
                 if (layerRemap.TryGetValue(attr.LayerIndex, out int remapped))
                     attr.LayerIndex = remapped;
                 else
-                    attr.LayerIndex = parentIdx; // fallback
+                    attr.LayerIndex = parentIdx;
 
                 geometries.Add(obj.Geometry.Duplicate());
                 attributes.Add(attr);
@@ -144,7 +128,6 @@ namespace Lichen.Core
         {
             EnsureLayers(doc, out int mastersLayerIndex, out int adminLayerIndex);
 
-            // Count existing masters BEFORE placing the new one
             int masterCount = CountExistingMasters(doc, mastersLayerIndex);
 
             double boxMinX = 0;
@@ -159,7 +142,7 @@ namespace Lichen.Core
                 new Point3d(boxMaxX, boxMinY, 0),
                 new Point3d(boxMaxX, boxMaxY, 0),
                 new Point3d(boxMinX, boxMaxY, 0),
-                new Point3d(boxMinX, boxMinY, 0)   // close
+                new Point3d(boxMinX, boxMinY, 0)
             };
             var boxCurve = new Rhino.Geometry.Polyline(boxPts).ToNurbsCurve();
 
@@ -167,7 +150,7 @@ namespace Lichen.Core
             doc.Objects.AddCurve(boxCurve, adminAttribs);
 
             // ── facade face line (dotted) ────────────────────────────────────────
-            double facadeY = BoxStartY + BoxSize / 2.0;
+            double facadeY = boxMinY + BoxSize / 2.0;  // FIX: was BoxStartY + BoxSize / 2.0
             var facadeLine = new LineCurve(
                 new Point3d(boxMinX, facadeY, 0),
                 new Point3d(boxMaxX, facadeY, 0));
@@ -204,7 +187,7 @@ namespace Lichen.Core
             double moduleWidth = bbox.Max.X - bbox.Min.X;
 
             double offsetX = boxMinX + (BoxSize - moduleWidth) / 2.0 - bbox.Min.X;
-            double offsetY = facadeY - bbox.Min.Y;
+            double offsetY = facadeY;
             double offsetZ = -bbox.Min.Z;
 
             var masterAttribs = new ObjectAttributes { LayerIndex = mastersLayerIndex };
@@ -250,8 +233,8 @@ namespace Lichen.Core
         {
             for (int i = 0; i < doc.Linetypes.Count; i++)
             {
-                string n = doc.Linetypes[i].Name.ToLower();
-                if (n.Contains("dot") || n.Contains("lichen"))
+                string n = doc.Linetypes[i].Name?.ToLower();
+                if (n != null && (n.Contains("dot") || n.Contains("lichen")))
                     return i;
             }
 
