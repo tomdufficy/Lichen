@@ -21,10 +21,12 @@ jobs:
       - name: Build
         run: dotnet build src/Lichen/Lichen/Lichen.csproj -c Release
 
-      - name: Copy icon to Release folders
+      - name: Copy files to Release folders
         run: |
           cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net7.0/lichen-icon-512.png
           cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
+          cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net7.0/manifest.yml
+          cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net48/manifest.yml
 
       - name: Download Yak
         run: Invoke-WebRequest -Uri "https://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "${{ github.workspace }}/yak.exe"
