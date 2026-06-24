@@ -437,3 +437,6 @@ FodyWeavers.xsd
 
 # Facade source files (large binary .3dm files — track separately via Git LFS if needed)
 # facades/*.3dm
+
+# Yak package manager
+**/bin/Release/manifest.yml
