@@ -27,13 +27,13 @@ jobs:
           cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
 
       - name: Download Yak
-        run: Invoke-WebRequest -Uri "https://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "yak.exe"
+        run: Invoke-WebRequest -Uri "https://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "${{ github.workspace }}/yak.exe"
         shell: pwsh
 
       - name: Yak Build and Push
         run: |
-          .\yak.exe build
-          .\yak.exe push *.yak
+          & "${{ github.workspace }}/yak.exe" build
+          & "${{ github.workspace }}/yak.exe" push (Get-Item *.yak).Name
         working-directory: src/Lichen/Lichen/bin/Release
         env:
           YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
