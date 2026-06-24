@@ -26,13 +26,15 @@ jobs:
           cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net7.0/lichen-icon-512.png
           cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
 
-      - name: Setup Yak
-        uses: Paramdigma/setup-yak@main
-        with:
-          token: ${{ secrets.YAK_TOKEN }}
+      - name: Download Yak
+        run: Invoke-WebRequest -Uri "https://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "yak.exe"
+        shell: pwsh
 
       - name: Yak Build and Push
         run: |
-          yak build
-          yak push *.yak
+          .\yak.exe build
+          .\yak.exe push *.yak
         working-directory: src/Lichen/Lichen/bin/Release
+        env:
+          YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
+        shell: pwsh
