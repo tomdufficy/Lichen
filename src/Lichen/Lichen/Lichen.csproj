@@ -15,10 +15,11 @@
   
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
-    <Version>1.0</Version>
-    <Title>Lichen</Title>
-    <Company>Lichen Authors</Company>
-    <Description>Description of Lichen</Description>
+	  <Version>0.1.0</Version>
+	  <Title>Lichen</Title>
+	  <Company>Tom Dufficy</Company>
+	  <Description>Tiles facade modules across building massing volumes in Rhino</Description>
+	  <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   
   <ItemGroup>

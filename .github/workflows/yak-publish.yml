@@ -1,0 +1,38 @@
+name: Yak Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Build
+        run: dotnet build src/Lichen/Lichen/Lichen.csproj -c Release
+
+      - name: Copy icon to Release folders
+        run: |
+          cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net7.0/lichen-icon-512.png
+          cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
+
+      - name: Setup Yak
+        uses: Paramdigma/setup-yak@main
+        with:
+          token: ${{ secrets.YAK_TOKEN }}
+
+      - name: Yak Build and Push
+        run: |
+          yak build
+          yak push *.yak
+        working-directory: src/Lichen/Lichen/bin/Release
