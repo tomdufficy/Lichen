@@ -1,6 +1,7 @@
 ﻿using Rhino;
 using Rhino.DocObjects;
 using Rhino.Geometry;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 
@@ -8,9 +9,6 @@ namespace Lichen.Core
 {
     public class BlockManager
     {
-        private const string MasterLayerName = "Lichen::Masters";
-        private const string AdminLayerName = "Lichen::Masters::Admin";
-
         private const double BoxSize = 10000.0;
         private const double BoxStartY = -25000.0;
         private const double MasterTextHeight = 500.0;
@@ -19,7 +17,7 @@ namespace Lichen.Core
         private static readonly Color LichenGreen = ColorTranslator.FromHtml("#a2b190");
         private static readonly Color LichenSlate = ColorTranslator.FromHtml("#566167");
 
-        // ─── layer setup ────────────────────────────────────────────────────────
+        // ─── layer setup ─────────────────────────────────────────────────────────
 
         private static void EnsureLayers(RhinoDoc doc, out int mastersIndex, out int adminIndex)
         {
@@ -49,18 +47,20 @@ namespace Lichen.Core
             return doc.Layers.Add(layer);
         }
 
-        // ─── block existence check ───────────────────────────────────────────────
+        // ─── block existence check ────────────────────────────────────────────────
 
         public static bool BlockExists(RhinoDoc doc, string moduleName)
         {
-            return doc.InstanceDefinitions.Find(moduleName) != null;
+            return doc.InstanceDefinitions.Find("Lichen::" + moduleName) != null;
         }
 
-        // ─── block import with layer preservation ────────────────────────────────
+        // ─── block import ─────────────────────────────────────────────────────────
 
         public static int ImportBlock(RhinoDoc doc, FacadeModule module)
         {
-            var existingDef = doc.InstanceDefinitions.Find(module.Name);
+            string blockName = "Lichen::" + module.Name;
+
+            var existingDef = doc.InstanceDefinitions.Find(blockName);
             if (existingDef != null) return existingDef.Index;
 
             var moduleFile = Rhino.FileIO.File3dm.Read(module.FilePath);
@@ -70,19 +70,26 @@ namespace Lichen.Core
                 return -1;
             }
 
-            string parentPath = "Lichen::Facades::" + module.Name;
-
+            // ── build facade layer hierarchy in host doc ──────────────────────────
             int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
             int facadesIdx = EnsureLayer(doc, "Facades", LichenGreen, lichenIdx);
             int parentIdx = EnsureLayer(doc, module.Name, LichenGreen, facadesIdx);
 
+            // ── remap source layers, preserving nested hierarchy ──────────────────
             var layerRemap = new Dictionary<int, int>();
             foreach (var srcLayer in moduleFile.AllLayers)
             {
-                int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, parentIdx);
+                // For top-level source layers use just the name;
+                // for children use the full source path so nesting is preserved.
+                string hostLayerName = srcLayer.ParentLayerId == Guid.Empty
+                    ? srcLayer.Name
+                    : srcLayer.FullPath;
+
+                int hostIdx = EnsureLayer(doc, hostLayerName, srcLayer.Color, parentIdx);
                 layerRemap[srcLayer.Index] = hostIdx;
             }
 
+            // ── collect geometry ──────────────────────────────────────────────────
             var geometries = new List<GeometryBase>();
             var attributes = new List<ObjectAttributes>();
 
@@ -91,11 +98,9 @@ namespace Lichen.Core
                 if (obj.Geometry == null) continue;
 
                 var attr = obj.Attributes.Duplicate();
-
-                if (layerRemap.TryGetValue(attr.LayerIndex, out int remapped))
-                    attr.LayerIndex = remapped;
-                else
-                    attr.LayerIndex = parentIdx;
+                attr.LayerIndex = layerRemap.TryGetValue(attr.LayerIndex, out int remapped)
+                    ? remapped
+                    : parentIdx;
 
                 geometries.Add(obj.Geometry.Duplicate());
                 attributes.Add(attr);
@@ -107,22 +112,25 @@ namespace Lichen.Core
                 return -1;
             }
 
+            // ── create block definition ───────────────────────────────────────────
             int defIndex = doc.InstanceDefinitions.Add(
-                module.Name,
+                blockName,
                 module.Name + " facade module",
                 Point3d.Origin,
                 geometries,
                 attributes);
 
             if (defIndex < 0)
+            {
                 RhinoApp.WriteLine("Lichen: failed to create block definition for {0}", module.Name);
-            else
-                RhinoApp.WriteLine("Lichen: imported block definition {0}", module.Name);
+                return -1;
+            }
 
+            RhinoApp.WriteLine("Lichen: imported block definition {0}", blockName);
             return defIndex;
         }
 
-        // ─── master placement ────────────────────────────────────────────────────
+        // ─── master placement ─────────────────────────────────────────────────────
 
         public static void PlaceMaster(RhinoDoc doc, FacadeModule module, int blockDefIndex)
         {
@@ -135,7 +143,7 @@ namespace Lichen.Core
             double boxMinY = BoxStartY - (masterCount * BoxSize);
             double boxMaxY = boxMinY + BoxSize;
 
-            // ── bounding box rectangle ───────────────────────────────────────────
+            // ── bounding box rectangle ────────────────────────────────────────────
             var boxPts = new Point3d[]
             {
                 new Point3d(boxMinX, boxMinY, 0),
@@ -149,8 +157,8 @@ namespace Lichen.Core
             var adminAttribs = new ObjectAttributes { LayerIndex = adminLayerIndex };
             doc.Objects.AddCurve(boxCurve, adminAttribs);
 
-            // ── facade face line (dotted) ────────────────────────────────────────
-            double facadeY = boxMinY + BoxSize / 2.0;  // FIX: was BoxStartY + BoxSize / 2.0
+            // ── facade face line (dotted) ─────────────────────────────────────────
+            double facadeY = boxMinY + BoxSize / 2.0;
             var facadeLine = new LineCurve(
                 new Point3d(boxMinX, facadeY, 0),
                 new Point3d(boxMaxX, facadeY, 0));
@@ -163,7 +171,7 @@ namespace Lichen.Core
             };
             doc.Objects.AddCurve(facadeLine, lineAttribs);
 
-            // ── labels ───────────────────────────────────────────────────────────
+            // ── labels ────────────────────────────────────────────────────────────
             double labelOffset = 500.0;
 
             AddText(doc, "outside",
@@ -178,14 +186,13 @@ namespace Lichen.Core
                 new Point3d(boxMinX + 200, boxMaxY - 200, 0),
                 MasterTextHeight, adminLayerIndex);
 
-            // ── master block instance ────────────────────────────────────────────
+            // ── master block instance ─────────────────────────────────────────────
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
             var bbox = BoundingBox.Empty;
             foreach (var obj in blockDef.GetObjects())
                 bbox.Union(obj.Geometry.GetBoundingBox(true));
 
             double moduleWidth = bbox.Max.X - bbox.Min.X;
-
             double offsetX = boxMinX + (BoxSize - moduleWidth) / 2.0 - bbox.Min.X;
             double offsetY = facadeY;
             double offsetZ = -bbox.Min.Z;
@@ -199,15 +206,14 @@ namespace Lichen.Core
             RhinoApp.WriteLine("Lichen: placed master for {0}", module.Name);
         }
 
-        // ─── helpers ─────────────────────────────────────────────────────────────
+        // ─── helpers ──────────────────────────────────────────────────────────────
 
         private static int CountExistingMasters(RhinoDoc doc, int mastersLayerIndex)
         {
             int count = 0;
             foreach (var obj in doc.Objects)
             {
-                if (obj.Attributes.LayerIndex == mastersLayerIndex
-                    && obj is InstanceObject)
+                if (obj.Attributes.LayerIndex == mastersLayerIndex && obj is InstanceObject)
                     count++;
             }
             return count;
