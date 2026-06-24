@@ -28,6 +28,12 @@ jobs:
           cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net7.0/manifest.yml
           cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net48/manifest.yml
 
+      - name: Set version in manifest
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          (Get-Content src/Lichen/Lichen/bin/Release/net7.0/manifest.yml) -replace '\$version', $version | Set-Content src/Lichen/Lichen/bin/Release/net7.0/manifest.yml
+        shell: pwsh
+
       - name: Download Yak
         run: Invoke-WebRequest -Uri "https://files.mcneel.com/yak/tools/latest/yak.exe" -OutFile "${{ github.workspace }}/yak.exe"
         shell: pwsh
