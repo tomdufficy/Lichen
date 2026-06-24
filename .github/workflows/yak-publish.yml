@@ -33,8 +33,9 @@ jobs:
       - name: Yak Build and Push
         run: |
           & "${{ github.workspace }}/yak.exe" build
-          & "${{ github.workspace }}/yak.exe" push (Get-Item *.yak).Name
-        working-directory: src/Lichen/Lichen/bin/Release
+          $yakFile = (Get-Item *.yak).Name
+          & "${{ github.workspace }}/yak.exe" push $yakFile
+        working-directory: src/Lichen/Lichen/bin/Release/net7.0
         env:
           YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
         shell: pwsh
