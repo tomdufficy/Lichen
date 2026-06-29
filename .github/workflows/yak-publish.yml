@@ -1,4 +1,5 @@
 name: Yak Publish
+run-name: ${{ github.ref_name }}
 
 on:
   push:
