@@ -1,3 +1,4 @@
+```markdown
 <p align="center">
   <img src="assets/brand/lichen-icon-512.png" width="128" alt="Lichen logo">
 </p>
@@ -6,11 +7,17 @@
 
 Modular facade generation tools for Rhino 8.
 
+## Demo
+
+<p align="center">
+  <img src="assets/demo/functionexample.gif" alt="Lichen demo" width="900">
+</p>
+
 ## Installation
 
 1. Open Rhino Package Manager
-2. Enable "Include pre-releases"
-3. Search for Lichen
+2. Enable **Include pre-releases**
+3. Search for **Lichen**
 4. Install
 
 ## Commands
@@ -29,7 +36,12 @@ Lichen currently includes a small library of example facade modules. Additional 
 
 ## Roadmap
 
-* Additional facade modules
-* Expanded facade catalogue
-* Rhino toolbar catalogue with previews
-* Documentation and examples
+- Additional facade modules
+- Expanded facade catalogue
+- Improved placement tools
+- Documentation and examples
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+```
