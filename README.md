@@ -1,4 +1,3 @@
-```markdown
 <p align="center">
   <img src="assets/brand/lichen-icon-512.png" width="128" alt="Lichen logo">
 </p>
@@ -44,4 +43,3 @@ Lichen currently includes a small library of example facade modules. Additional 
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-```
