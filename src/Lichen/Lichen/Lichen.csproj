@@ -15,7 +15,7 @@
   
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
-	  <Version>0.1.0</Version>
+	  <Version>0.2.2-beta</Version>
 	  <Title>Lichen</Title>
 	  <Company>Tom Dufficy</Company>
 	  <Description>Tiles facade modules across building massing volumes in Rhino</Description>

@@ -14,16 +14,21 @@ namespace Lichen.Core
         private const double MasterTextHeight = 500.0;
         private const double AdminTextHeight = 200.0;
 
-        private static readonly Color LichenGreen = ColorTranslator.FromHtml("#a2b190");
-        private static readonly Color LichenSlate = ColorTranslator.FromHtml("#566167");
+        // Lichen palette
+        private static readonly Color LichenSand = ColorTranslator.FromHtml("#d3c5a8");  // light
+        private static readonly Color LichenSage = ColorTranslator.FromHtml("#a2b190");  // mid-tone
+        private static readonly Color LichenSlate = ColorTranslator.FromHtml("#566167"); // dark
+
+        // Admin palette
+        private static readonly Color AdminPink = ColorTranslator.FromHtml("#f6d9f5");
 
         // ─── layer setup ─────────────────────────────────────────────────────────
 
         private static void EnsureLayers(RhinoDoc doc, out int mastersIndex, out int adminIndex)
         {
-            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
-            mastersIndex = EnsureLayer(doc, "Masters", LichenGreen, lichenIndex);
-            adminIndex = EnsureLayer(doc, "Admin", LichenSlate, mastersIndex);
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenSage, -1);
+            mastersIndex = EnsureLayer(doc, "Masters", LichenSlate, lichenIndex);
+            adminIndex = EnsureLayer(doc, "Admin", AdminPink, mastersIndex);
         }
 
         public static void EnsureLayers(RhinoDoc doc)
@@ -51,8 +56,8 @@ namespace Lichen.Core
 
         public static int EnsureFacadesLayer(RhinoDoc doc)
         {
-            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
-            return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenSage, -1);
+            return EnsureLayer(doc, "Facades", LichenSage, lichenIndex);
         }
 
         // ─── block existence check ────────────────────────────────────────────────
@@ -78,15 +83,8 @@ namespace Lichen.Core
                 return -1;
             }
 
-            // ── build facade layer hierarchy in host doc ──────────────────────────
-            int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            int lichenIdx = EnsureLayer(doc, "Lichen", LichenSage, -1);
 
-            // ── find the source file's own top-level "Lichen" layer ───────────────
-            // This is the anchor: it gets stripped, and everything beneath it is
-            // grafted directly onto the host's Lichen layer. Anything OUTSIDE this
-            // subtree (e.g. a "Guides" layer sitting alongside it) is excluded
-            // entirely — no layer created, no geometry imported, no effect on the
-            // block's bounding box.
             Layer sourceLichenLayer = null;
             foreach (var candidate in moduleFile.AllLayers)
             {
@@ -104,15 +102,6 @@ namespace Lichen.Core
                     module.Name);
             }
 
-            // ── remap source layers, merging same-named layers across modules ─────
-            // Walk each source layer up to its real parent (by Id, not by parsing
-            // FullPath). Layers under the source "Lichen" layer are recreated under
-            // the host's Lichen layer using only their short Name, so identically
-            // named/nested layers from different modules land on the same host
-            // layer — EnsureLayer's find-by-full-path check does the merging.
-            // Recursive + memoized via layerRemap so parents always exist before
-            // children. Anything not reachable from sourceLichenLayer is left out
-            // of layerRemap entirely, which excludes it downstream.
             var layerRemap = new Dictionary<int, int>();
 
             int GetOrCreateHostLayer(Layer srcLayer)
@@ -127,13 +116,13 @@ namespace Lichen.Core
                 }
 
                 if (srcLayer.ParentLayerId == Guid.Empty)
-                    return -1; // top-level layer other than "Lichen" (e.g. Guides) — excluded
+                    return -1;
 
                 var srcParent = moduleFile.AllLayers.FindId(srcLayer.ParentLayerId);
                 if (srcParent == null) return -1;
 
                 int hostParentIdx = GetOrCreateHostLayer(srcParent);
-                if (hostParentIdx < 0) return -1; // parent excluded — this is excluded too
+                if (hostParentIdx < 0) return -1;
 
                 int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, hostParentIdx);
                 layerRemap[srcLayer.Index] = hostIdx;
@@ -143,11 +132,6 @@ namespace Lichen.Core
             foreach (var srcLayer in moduleFile.AllLayers)
                 GetOrCreateHostLayer(srcLayer);
 
-            // ── collect geometry ──────────────────────────────────────────────────
-            // Objects whose layer isn't in layerRemap (Guides, or anything else
-            // outside the source Lichen subtree) are skipped entirely — they never
-            // become part of the block, so they never affect its bounding box,
-            // orientation, or size.
             var geometries = new List<GeometryBase>();
             var attributes = new List<ObjectAttributes>();
 
@@ -169,7 +153,6 @@ namespace Lichen.Core
                 return -1;
             }
 
-            // ── create block definition ───────────────────────────────────────────
             int defIndex = doc.InstanceDefinitions.Add(
                 blockName,
                 module.Name + " facade module",
@@ -200,7 +183,6 @@ namespace Lichen.Core
             double boxMinY = BoxStartY - (masterCount * BoxSize);
             double boxMaxY = boxMinY + BoxSize;
 
-            // ── bounding box rectangle ────────────────────────────────────────────
             var boxPts = new Point3d[]
             {
                 new Point3d(boxMinX, boxMinY, 0),
@@ -214,7 +196,6 @@ namespace Lichen.Core
             var adminAttribs = new ObjectAttributes { LayerIndex = adminLayerIndex };
             doc.Objects.AddCurve(boxCurve, adminAttribs);
 
-            // ── facade face line (dotted) ─────────────────────────────────────────
             double facadeY = boxMinY + BoxSize / 2.0;
             var facadeLine = new LineCurve(
                 new Point3d(boxMinX, facadeY, 0),
@@ -228,7 +209,6 @@ namespace Lichen.Core
             };
             doc.Objects.AddCurve(facadeLine, lineAttribs);
 
-            // ── labels ────────────────────────────────────────────────────────────
             double labelOffset = 500.0;
 
             AddText(doc, "outside",
@@ -243,7 +223,6 @@ namespace Lichen.Core
                 new Point3d(boxMinX + 200, boxMaxY - 200, 0),
                 MasterTextHeight, adminLayerIndex);
 
-            // ── master block instance ─────────────────────────────────────────────
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
             var bbox = BoundingBox.Empty;
             foreach (var obj in blockDef.GetObjects())
