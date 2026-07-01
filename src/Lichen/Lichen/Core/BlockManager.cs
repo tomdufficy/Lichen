@@ -76,18 +76,38 @@ namespace Lichen.Core
             int parentIdx = EnsureLayer(doc, module.Name, LichenGreen, facadesIdx);
 
             // ── remap source layers, preserving nested hierarchy ──────────────────
+            // Walk each source layer up to its real parent (by Id, not by parsing
+            // FullPath) and recreate that same nesting in the host doc, using only
+            // the short Name at each level. Recursive + memoized via layerRemap so
+            // parents always exist before their children regardless of the order
+            // AllLayers happens to enumerate them in.
             var layerRemap = new Dictionary<int, int>();
-            foreach (var srcLayer in moduleFile.AllLayers)
-            {
-                // For top-level source layers use just the name;
-                // for children use the full source path so nesting is preserved.
-                string hostLayerName = srcLayer.ParentLayerId == Guid.Empty
-                    ? srcLayer.Name
-                    : srcLayer.FullPath;
 
-                int hostIdx = EnsureLayer(doc, hostLayerName, srcLayer.Color, parentIdx);
+            int GetOrCreateHostLayer(Layer srcLayer)
+            {
+                if (layerRemap.TryGetValue(srcLayer.Index, out int cached))
+                    return cached;
+
+                int hostParentIdx;
+                if (srcLayer.ParentLayerId == Guid.Empty)
+                {
+                    hostParentIdx = parentIdx;
+                }
+                else
+                {
+                    var srcParent = moduleFile.AllLayers.FindId(srcLayer.ParentLayerId);
+                    hostParentIdx = srcParent != null
+                        ? GetOrCreateHostLayer(srcParent)
+                        : parentIdx; // fallback if parent is missing for some reason
+                }
+
+                int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, hostParentIdx);
                 layerRemap[srcLayer.Index] = hostIdx;
+                return hostIdx;
             }
+
+            foreach (var srcLayer in moduleFile.AllLayers)
+                GetOrCreateHostLayer(srcLayer);
 
             // ── collect geometry ──────────────────────────────────────────────────
             var geometries = new List<GeometryBase>();
