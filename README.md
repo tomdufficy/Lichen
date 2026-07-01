@@ -41,6 +41,12 @@ Lichen currently includes a small library of example facade modules. Additional 
 - Improved placement tools
 - Documentation and examples
 
+## Facade Library
+
+<!-- FACADE_LIBRARY_START -->
+This section is generated automatically.
+<!-- FACADE_LIBRARY_END -->
+
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
