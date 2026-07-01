@@ -119,7 +119,7 @@ namespace Lichen.Core
             Transform scale = Transform.Scale(Plane.WorldXY, stretchX, 1.0, stretchZ);
 
             var attribs = new Rhino.DocObjects.ObjectAttributes();
-            attribs.LayerIndex = doc.Layers.CurrentLayerIndex;
+            attribs.LayerIndex = BlockManager.EnsureFacadesLayer(doc);
 
             for (int col = 0; col < countX; col++)
             {

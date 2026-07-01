@@ -47,6 +47,14 @@ namespace Lichen.Core
             return doc.Layers.Add(layer);
         }
 
+        // ─── facades layer ─────────────────────────────────────────────────────────
+
+        public static int EnsureFacadesLayer(RhinoDoc doc)
+        {
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
+        }
+
         // ─── block existence check ────────────────────────────────────────────────
 
         public static bool BlockExists(RhinoDoc doc, string moduleName)
@@ -72,15 +80,39 @@ namespace Lichen.Core
 
             // ── build facade layer hierarchy in host doc ──────────────────────────
             int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
-            int facadesIdx = EnsureLayer(doc, "Facades", LichenGreen, lichenIdx);
-            int parentIdx = EnsureLayer(doc, module.Name, LichenGreen, facadesIdx);
 
-            // ── remap source layers, preserving nested hierarchy ──────────────────
+            // ── find the source file's own top-level "Lichen" layer ───────────────
+            // This is the anchor: it gets stripped, and everything beneath it is
+            // grafted directly onto the host's Lichen layer. Anything OUTSIDE this
+            // subtree (e.g. a "Guides" layer sitting alongside it) is excluded
+            // entirely — no layer created, no geometry imported, no effect on the
+            // block's bounding box.
+            Layer sourceLichenLayer = null;
+            foreach (var candidate in moduleFile.AllLayers)
+            {
+                if (candidate.ParentLayerId == Guid.Empty && candidate.Name == "Lichen")
+                {
+                    sourceLichenLayer = candidate;
+                    break;
+                }
+            }
+
+            if (sourceLichenLayer == null)
+            {
+                RhinoApp.WriteLine(
+                    "Lichen: WARNING — {0} has no top-level 'Lichen' layer. No geometry will be imported.",
+                    module.Name);
+            }
+
+            // ── remap source layers, merging same-named layers across modules ─────
             // Walk each source layer up to its real parent (by Id, not by parsing
-            // FullPath) and recreate that same nesting in the host doc, using only
-            // the short Name at each level. Recursive + memoized via layerRemap so
-            // parents always exist before their children regardless of the order
-            // AllLayers happens to enumerate them in.
+            // FullPath). Layers under the source "Lichen" layer are recreated under
+            // the host's Lichen layer using only their short Name, so identically
+            // named/nested layers from different modules land on the same host
+            // layer — EnsureLayer's find-by-full-path check does the merging.
+            // Recursive + memoized via layerRemap so parents always exist before
+            // children. Anything not reachable from sourceLichenLayer is left out
+            // of layerRemap entirely, which excludes it downstream.
             var layerRemap = new Dictionary<int, int>();
 
             int GetOrCreateHostLayer(Layer srcLayer)
@@ -88,18 +120,20 @@ namespace Lichen.Core
                 if (layerRemap.TryGetValue(srcLayer.Index, out int cached))
                     return cached;
 
-                int hostParentIdx;
+                if (sourceLichenLayer != null && srcLayer.Index == sourceLichenLayer.Index)
+                {
+                    layerRemap[srcLayer.Index] = lichenIdx;
+                    return lichenIdx;
+                }
+
                 if (srcLayer.ParentLayerId == Guid.Empty)
-                {
-                    hostParentIdx = parentIdx;
-                }
-                else
-                {
-                    var srcParent = moduleFile.AllLayers.FindId(srcLayer.ParentLayerId);
-                    hostParentIdx = srcParent != null
-                        ? GetOrCreateHostLayer(srcParent)
-                        : parentIdx; // fallback if parent is missing for some reason
-                }
+                    return -1; // top-level layer other than "Lichen" (e.g. Guides) — excluded
+
+                var srcParent = moduleFile.AllLayers.FindId(srcLayer.ParentLayerId);
+                if (srcParent == null) return -1;
+
+                int hostParentIdx = GetOrCreateHostLayer(srcParent);
+                if (hostParentIdx < 0) return -1; // parent excluded — this is excluded too
 
                 int hostIdx = EnsureLayer(doc, srcLayer.Name, srcLayer.Color, hostParentIdx);
                 layerRemap[srcLayer.Index] = hostIdx;
@@ -110,17 +144,20 @@ namespace Lichen.Core
                 GetOrCreateHostLayer(srcLayer);
 
             // ── collect geometry ──────────────────────────────────────────────────
+            // Objects whose layer isn't in layerRemap (Guides, or anything else
+            // outside the source Lichen subtree) are skipped entirely — they never
+            // become part of the block, so they never affect its bounding box,
+            // orientation, or size.
             var geometries = new List<GeometryBase>();
             var attributes = new List<ObjectAttributes>();
 
             foreach (var obj in moduleFile.Objects)
             {
                 if (obj.Geometry == null) continue;
+                if (!layerRemap.TryGetValue(obj.Attributes.LayerIndex, out int remapped)) continue;
 
                 var attr = obj.Attributes.Duplicate();
-                attr.LayerIndex = layerRemap.TryGetValue(attr.LayerIndex, out int remapped)
-                    ? remapped
-                    : parentIdx;
+                attr.LayerIndex = remapped;
 
                 geometries.Add(obj.Geometry.Duplicate());
                 attributes.Add(attr);
