@@ -37,6 +37,7 @@ Lichen currently includes a small library of example facade modules. Additional 
 
 - Additional facade modules
 - Expanded facade catalogue
+- Roof options (green roof, solar panels, parapet)
 - Improved placement tools
 - Documentation and examples
 
