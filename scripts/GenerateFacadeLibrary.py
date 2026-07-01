@@ -12,7 +12,10 @@ GRID_COLUMNS = 3
 
 SOURCE_RELATIVE = os.path.join("src", "Lichen", "Lichen", "facades")
 OUTPUT_RELATIVE = os.path.join("assets", "facade-library")
-CATALOGUE_MARKDOWN_RELATIVE = os.path.join("assets", "facade-library.md")
+README_RELATIVE = "README.md"
+
+FACADE_LIBRARY_START = "<!-- FACADE_LIBRARY_START -->"
+FACADE_LIBRARY_END = "<!-- FACADE_LIBRARY_END -->"
 
 
 def find_repo_root(start_dir):
@@ -163,7 +166,7 @@ def process_file(rhino_file, output_file):
 
 def generate_markdown_catalogue(repo_root):
     image_folder = os.path.join(repo_root, OUTPUT_RELATIVE)
-    markdown_path = os.path.join(repo_root, CATALOGUE_MARKDOWN_RELATIVE)
+    readme_path = os.path.join(repo_root, README_RELATIVE)
 
     images = []
 
@@ -173,34 +176,53 @@ def generate_markdown_catalogue(repo_root):
 
     images.sort()
 
-    lines = []
-    lines.append("# Facade Library")
-    lines.append("")
-    lines.append('<table>')
+    catalogue = []
+    catalogue.append("")
+    catalogue.append('<table>')
 
     for i in range(0, len(images), GRID_COLUMNS):
         row = images[i:i + GRID_COLUMNS]
-        lines.append("  <tr>")
+        catalogue.append("  <tr>")
 
         for image in row:
             title = os.path.splitext(image)[0]
-            src = "facade-library/{}".format(image)
+            src = "assets/facade-library/{}".format(image)
 
-            lines.append('    <td align="center" width="{}%">'.format(int(100 / GRID_COLUMNS)))
-            lines.append('      <img src="{}" width="100%"><br>'.format(src))
-            lines.append('      <sub>{}</sub>'.format(title))
-            lines.append("    </td>")
+            catalogue.append('    <td align="center" width="{}%">'.format(int(100 / GRID_COLUMNS)))
+            catalogue.append('      <img src="{}" width="100%"><br>'.format(src))
+            catalogue.append('      <sub>{}</sub>'.format(title))
+            catalogue.append("    </td>")
 
-        lines.append("  </tr>")
+        catalogue.append("  </tr>")
 
-    lines.append("</table>")
-    lines.append("")
+    catalogue.append("</table>")
+    catalogue.append("")
 
-    with open(markdown_path, "w") as f:
-        f.write("\n".join(lines))
+    if not os.path.isfile(readme_path):
+        print("README.md not found:")
+        print(readme_path)
+        return
 
-    print("Updated markdown catalogue:")
-    print(markdown_path)
+    with open(readme_path, "r") as f:
+        readme = f.read()
+
+    start_index = readme.find(FACADE_LIBRARY_START)
+    end_index = readme.find(FACADE_LIBRARY_END)
+
+    if start_index == -1 or end_index == -1 or end_index < start_index:
+        print("Could not find facade library markers in README.md")
+        return
+
+    before = readme[:start_index + len(FACADE_LIBRARY_START)]
+    after = readme[end_index:]
+
+    updated = before + "\n" + "\n".join(catalogue) + after
+
+    with open(readme_path, "w") as f:
+        f.write(updated)
+
+    print("Updated README facade library section:")
+    print(readme_path)
 
 
 def main():
