@@ -431,6 +431,13 @@ FodyWeavers.xsd
 # Rhino / Lichen specific
 *.rhp
 *.rui
+*.3dmbak
+*.3dm.rhl
+*.rhl
+*.bak
+*.tmp
+
+!*.3dm
 
 # Adobe Illustrator backups
 *.ai~
