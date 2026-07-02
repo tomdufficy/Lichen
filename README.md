@@ -44,7 +44,23 @@ Lichen currently includes a small library of example facade modules. Additional 
 ## Facade Library
 
 <!-- FACADE_LIBRARY_START -->
-This section is generated automatically.
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_001.png" width="100%"><br>
+      <sub>Lichen_Facade_001</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_002.png" width="100%"><br>
+      <sub>Lichen_Facade_002</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_003.png" width="100%"><br>
+      <sub>Lichen_Facade_003</sub>
+    </td>
+  </tr>
+</table>
 <!-- FACADE_LIBRARY_END -->
 
 ## License
