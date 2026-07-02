@@ -43,6 +43,7 @@ Lichen currently includes a small library of example facade modules. Additional 
 
 ## Facade Library
 
+*This section is automatically generated*
 <!-- FACADE_LIBRARY_START -->
 
 <table>
