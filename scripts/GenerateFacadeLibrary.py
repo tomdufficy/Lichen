@@ -6,8 +6,8 @@ import System.Drawing
 
 
 IMAGE_WIDTH = 1600
-IMAGE_HEIGHT = 1200
-ZOOM_SCALE = 0.92
+IMAGE_HEIGHT = 1600
+ZOOM_SCALE = 1.50
 GRID_COLUMNS = 3
 
 SOURCE_RELATIVE = os.path.join("src", "Lichen", "Lichen", "facades")
@@ -65,6 +65,12 @@ def get_document_bounding_box():
 
     for obj in sc.doc.Objects:
         if obj is None or obj.IsHidden or obj.IsDeleted:
+            continue
+
+        layer = sc.doc.Layers[obj.Attributes.LayerIndex]
+        layer_name = layer.FullPath.lower() if layer else ""
+
+        if "guide" in layer_name or "facade-line" in layer_name or "outside" in layer_name:
             continue
 
         obj_bbox = obj.Geometry.GetBoundingBox(True)
