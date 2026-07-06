@@ -1,35 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	
-  <PropertyGroup>
-    <!-- Select the framework(s) you wish to target.
+
+	<PropertyGroup>
+		<!-- Select the framework(s) you wish to target.
         Rhino 6: net45
         Rhino 7: net48
         Rhino 8 Windows: net48, net7.0, net7.0-windows, net7.0-windows10.0.22000.0, etc
         Rhino 8 Mac: net7.0, net7.0-macos, net7.0-macos12.0, etc
     -->
-    <TargetFrameworks>net7.0;net48</TargetFrameworks>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <TargetExt>.rhp</TargetExt>
-    <NoWarn>NU1701</NoWarn>
-  </PropertyGroup>
-  
-  <PropertyGroup>
-    <!-- Specifies information for Assembly and Yak -->
-	  <Version>0.2.1-beta.1</Version>
-	  <Title>Lichen</Title>
-	  <Company>Tom Dufficy</Company>
-	  <Description>Tiles facade modules across building massing volumes in Rhino</Description>
-	  <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
-  </ItemGroup>
+		<TargetFrameworks>net7.0;net48</TargetFrameworks>
+		<EnableDynamicLoading>true</EnableDynamicLoading>
+		<TargetExt>.rhp</TargetExt>
+		<NoWarn>NU1701</NoWarn>
+	</PropertyGroup>
 
-    <ItemGroup>
+	<PropertyGroup>
+		<!-- Specifies information for Assembly and Yak -->
+		<Version>0.2.1-beta.1</Version>
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+		<Title>Lichen</Title>
+		<Company>Tom Dufficy</Company>
+		<Description>Tiles facade modules across building massing volumes in Rhino</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Content Include="facades\*.3dm">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
-  
+
 </Project>
