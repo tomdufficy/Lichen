@@ -19,7 +19,8 @@ if ($status) {
 git fetch origin
 
 [xml]$csproj = Get-Content $csprojPath
-$version = $csproj.Project.PropertyGroup.Version
+$versionNode = $csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1
+$version = $versionNode.Version.Trim()
 
 if (-not $version) {
     throw "Could not find <Version> in $csprojPath"
