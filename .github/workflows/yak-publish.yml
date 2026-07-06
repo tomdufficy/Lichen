@@ -23,11 +23,12 @@ jobs:
         run: dotnet build src/Lichen/Lichen/Lichen.csproj -c Release
 
       - name: Copy files to Release folders
+        shell: pwsh
         run: |
-          cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net7.0/lichen-icon-512.png
-          cp assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
-          cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net7.0/manifest.yml
-          cp src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net48/manifest.yml
+          Copy-Item assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net7.0/lichen-icon-512.png
+          Copy-Item assets/brand/lichen-icon-512.png src/Lichen/Lichen/bin/Release/net48/lichen-icon-512.png
+          Copy-Item src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net7.0/manifest.yml
+          Copy-Item src/Lichen/Lichen/manifest.yml src/Lichen/Lichen/bin/Release/net48/manifest.yml
 
       - name: Set version in manifest
         run: |
