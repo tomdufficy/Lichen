@@ -6,6 +6,8 @@
 
 Modular facade generation tools for Rhino 8.
 
+Lichen automatically applies modular facade systems to simple building massing models, making it easy to explore architectural facade concepts.
+
 ## Demo
 
 <p align="center">
@@ -14,7 +16,7 @@ Modular facade generation tools for Rhino 8.
 
 ## Installation
 
-1. Open Rhino Package Manager
+1. Open **Rhino Package Manager**
 2. Enable **Include pre-releases**
 3. Search for **Lichen**
 4. Install
@@ -23,7 +25,7 @@ Modular facade generation tools for Rhino 8.
 
 ### LichenApply
 
-Applies a selected facade module to one or more simple building volumes.
+Applies a selected facade module to one or more building massing models.
 
 ### LichenList
 
@@ -31,19 +33,12 @@ Lists the facade modules currently installed with Lichen.
 
 ## Included Facades
 
-Lichen currently includes a small library of example facade modules. Additional facades will be added over time.
-
-## Roadmap
-
-- Additional facade modules
-- Expanded facade catalogue
-- Roof options (green roof, solar panels, parapet)
-- Improved placement tools
-- Documentation and examples
+Lichen includes a small library of example facade modules. The library is intended to grow over time as additional modules are released.
 
 ## Facade Library
 
-*This section is automatically generated*
+*This section is automatically generated.*
+
 <!-- FACADE_LIBRARY_START -->
 
 <table>
@@ -62,8 +57,14 @@ Lichen currently includes a small library of example facade modules. Additional 
     </td>
   </tr>
 </table>
+
 <!-- FACADE_LIBRARY_END -->
+
+## Roadmap
+
+- Additional facade modules
+- Toolbar
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
