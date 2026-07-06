@@ -5,11 +5,6 @@ using System.Runtime.InteropServices;
 
 // Plug-in Description Attributes - all of these are optional.
 // These will show in Rhino's option dialog, in the tab Plug-ins.
-[assembly: PlugInDescription(DescriptionType.Address, "")]
-[assembly: PlugInDescription(DescriptionType.Country, "")]
-[assembly: PlugInDescription(DescriptionType.Email, "")]
-[assembly: PlugInDescription(DescriptionType.Phone, "")]
-[assembly: PlugInDescription(DescriptionType.Fax, "")]
 [assembly: PlugInDescription(DescriptionType.Organization, "Tom Dufficy")]
 [assembly: PlugInDescription(DescriptionType.UpdateUrl, "https://github.com/tomdufficy/Lichen")]
 [assembly: PlugInDescription(DescriptionType.WebSite, "https://github.com/tomdufficy/Lichen")]
