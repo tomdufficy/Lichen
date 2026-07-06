@@ -15,9 +15,11 @@ namespace Lichen.Core
         private const double AdminTextHeight = 200.0;
 
         // Lichen palette
-        private static readonly Color LichenSand = ColorTranslator.FromHtml("#d3c5a8");  // light
-        private static readonly Color LichenSage = ColorTranslator.FromHtml("#a2b190");  // mid-tone
-        private static readonly Color LichenSlate = ColorTranslator.FromHtml("#566167"); // dark
+        private static readonly Color LichenMist = ColorTranslator.FromHtml("#F3F4F0");
+        private static readonly Color LichenGreen = ColorTranslator.FromHtml("#9DB39A");
+        private static readonly Color MineralBlue = ColorTranslator.FromHtml("#A9C3C9");
+        private static readonly Color GoldenLichen = ColorTranslator.FromHtml("#C4B54A");
+        private static readonly Color ForestSlate = ColorTranslator.FromHtml("#46534D");
 
         // Admin palette
         private static readonly Color AdminPink = ColorTranslator.FromHtml("#f6d9f5");
@@ -26,8 +28,8 @@ namespace Lichen.Core
 
         private static void EnsureLayers(RhinoDoc doc, out int mastersIndex, out int adminIndex)
         {
-            int lichenIndex = EnsureLayer(doc, "Lichen", LichenSage, -1);
-            mastersIndex = EnsureLayer(doc, "Masters", LichenSlate, lichenIndex);
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            mastersIndex = EnsureLayer(doc, "Masters", ForestSlate, lichenIndex);
             adminIndex = EnsureLayer(doc, "Admin", AdminPink, mastersIndex);
         }
 
@@ -56,8 +58,8 @@ namespace Lichen.Core
 
         public static int EnsureFacadesLayer(RhinoDoc doc)
         {
-            int lichenIndex = EnsureLayer(doc, "Lichen", LichenSage, -1);
-            return EnsureLayer(doc, "Facades", LichenSage, lichenIndex);
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
         }
 
         // ─── block existence check ────────────────────────────────────────────────
@@ -83,7 +85,7 @@ namespace Lichen.Core
                 return -1;
             }
 
-            int lichenIdx = EnsureLayer(doc, "Lichen", LichenSage, -1);
+            int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
 
             Layer sourceLichenLayer = null;
             foreach (var candidate in moduleFile.AllLayers)
