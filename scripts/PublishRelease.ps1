@@ -18,6 +18,11 @@ if ($status) {
 
 git fetch origin
 
+$behind = git rev-list --count HEAD..origin/main
+if ([int]$behind -gt 0) {
+    throw "Local main is behind origin/main. Pull before publishing."
+}
+
 [xml]$csproj = Get-Content $csprojPath
 $versionNode = $csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1
 $version = $versionNode.Version.Trim()
@@ -51,7 +56,7 @@ if ($confirm -ne "YES") {
     throw "Cancelled."
 }
 
-git tag $tag
+git tag -a $tag -m "Release $tag"
 git push origin $tag
 
 Write-Host "Published tag $tag. GitHub Actions should now build and publish to Yak."
