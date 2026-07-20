@@ -44,6 +44,10 @@ Lichen includes a small library of example facade modules. The library is intend
 <table>
   <tr>
     <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_000.png" width="100%"><br>
+      <sub>Lichen_Facade_000</sub>
+    </td>
+    <td align="center" width="33%">
       <img src="assets/facade-library/Lichen_Facade_001.png" width="100%"><br>
       <sub>Lichen_Facade_001</sub>
     </td>
@@ -51,13 +55,46 @@ Lichen includes a small library of example facade modules. The library is intend
       <img src="assets/facade-library/Lichen_Facade_002.png" width="100%"><br>
       <sub>Lichen_Facade_002</sub>
     </td>
+  </tr>
+  <tr>
     <td align="center" width="33%">
       <img src="assets/facade-library/Lichen_Facade_003.png" width="100%"><br>
       <sub>Lichen_Facade_003</sub>
     </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_004_a.png" width="100%"><br>
+      <sub>Lichen_Facade_004_a</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_004_b.png" width="100%"><br>
+      <sub>Lichen_Facade_004_b</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_004_c.png" width="100%"><br>
+      <sub>Lichen_Facade_004_c</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_005_a.png" width="100%"><br>
+      <sub>Lichen_Facade_005_a</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_005_b.png" width="100%"><br>
+      <sub>Lichen_Facade_005_b</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_005_c.png" width="100%"><br>
+      <sub>Lichen_Facade_005_c</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_005_d.png" width="100%"><br>
+      <sub>Lichen_Facade_005_d</sub>
+    </td>
   </tr>
 </table>
-
 <!-- FACADE_LIBRARY_END -->
 
 ## Roadmap
