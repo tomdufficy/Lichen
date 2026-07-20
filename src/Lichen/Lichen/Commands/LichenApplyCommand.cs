@@ -29,21 +29,7 @@ namespace Lichen.Commands
                 return Result.Failure;
             }
 
-            // 1. Select volumes first
-            var getObject = new Rhino.Input.Custom.GetObject();
-            getObject.SetCommandPrompt(
-                "Select building volume(s) to apply facade to");
-
-            getObject.GeometryFilter = ObjectType.Brep;
-            getObject.GetMultiple(1, 0);
-
-            if (getObject.CommandResult() != Result.Success)
-            {
-                RhinoApp.WriteLine("Lichen: no volume selected.");
-                return Result.Cancel;
-            }
-
-            // 2. Select facade visually
+            // 1. Select facade visually
             var dialog = new FacadeBrowserDialog(
                 catalogue.Modules,
                 browseOnly: false);
@@ -64,6 +50,21 @@ namespace Lichen.Commands
             RhinoApp.WriteLine(
                 "Lichen: using module {0}",
                 selectedModule.Name);
+
+            // 2. Select volumes
+            var getObject = new Rhino.Input.Custom.GetObject();
+
+            getObject.SetCommandPrompt(
+                "Select building volume(s) to apply facade to");
+
+            getObject.GeometryFilter = ObjectType.Brep;
+            getObject.GetMultiple(1, 0);
+
+            if (getObject.CommandResult() != Result.Success)
+            {
+                RhinoApp.WriteLine("Lichen: no volume selected.");
+                return Result.Cancel;
+            }
 
             // 3. Import block and place master
             bool isNewBlock =
