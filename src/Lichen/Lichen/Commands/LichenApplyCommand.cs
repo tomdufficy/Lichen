@@ -29,7 +29,6 @@ namespace Lichen.Commands
                 return Result.Failure;
             }
 
-            // 1. Select facade visually
             var dialog = new FacadeBrowserDialog(
                 catalogue.Modules,
                 browseOnly: false);
@@ -44,16 +43,19 @@ namespace Lichen.Commands
                 return Result.Cancel;
             }
 
-            FacadeModule selectedModule =
-                dialog.SelectedModule;
+            FacadeModule selectedModule = dialog.SelectedModule;
 
-            bool stretchHeight = dialog.StretchHeight;
+            var placementOptions = new FacadePlacementOptions
+            {
+                StretchVertically = dialog.StretchVertically,
+                StretchHorizontally = dialog.StretchHorizontally,
+                HorizontalAlignment = dialog.HorizontalAlignment
+            };
 
             RhinoApp.WriteLine(
                 "Lichen: using module {0}",
                 selectedModule.Name);
 
-            // 2. Select volumes
             var getObject = new Rhino.Input.Custom.GetObject();
 
             getObject.SetCommandPrompt(
@@ -68,7 +70,6 @@ namespace Lichen.Commands
                 return Result.Cancel;
             }
 
-            // 3. Import block and place master
             bool isNewBlock =
                 !BlockManager.BlockExists(
                     doc,
@@ -95,7 +96,6 @@ namespace Lichen.Commands
                     blockDefIndex);
             }
 
-            // 4. Apply to each selected volume
             for (int i = 0;
                  i < getObject.ObjectCount;
                  i++)
@@ -123,7 +123,7 @@ namespace Lichen.Commands
                         doc,
                         face,
                         blockDefIndex,
-                        stretchHeight);
+                        placementOptions);
                 }
             }
 

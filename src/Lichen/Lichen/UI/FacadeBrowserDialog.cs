@@ -13,13 +13,39 @@ namespace Lichen.UI
         private readonly Label _selectedDescription;
         private readonly Label _selectedDimensions;
         private readonly Button _applyButton;
-        private readonly CheckBox _stretchHeightCheckBox;
+
+        private readonly RadioButton _verticalStretchRadio;
+        private readonly RadioButton _verticalRepeatRadio;
+        private readonly RadioButton _horizontalStretchRadio;
+        private readonly RadioButton _horizontalPreserveRadio;
+        private readonly RadioButton _alignmentEvenRadio;
+        private readonly RadioButton _alignmentLeftRadio;
+        private readonly RadioButton _alignmentCentreRadio;
+        private readonly RadioButton _alignmentRightRadio;
+        private readonly DynamicLayout _alignmentLayout;
 
         public FacadeModule SelectedModule { get; private set; }
-
         public bool WasApplied { get; private set; }
 
-        public bool StretchHeight { get; private set; }
+        public bool StretchVertically => _verticalStretchRadio.Checked;
+        public bool StretchHorizontally => _horizontalStretchRadio.Checked;
+
+        public HorizontalAlignmentMode HorizontalAlignment
+        {
+            get
+            {
+                if (_alignmentLeftRadio.Checked)
+                    return HorizontalAlignmentMode.Left;
+
+                if (_alignmentCentreRadio.Checked)
+                    return HorizontalAlignmentMode.Centre;
+
+                if (_alignmentRightRadio.Checked)
+                    return HorizontalAlignmentMode.Right;
+
+                return HorizontalAlignmentMode.EvenSpacing;
+            }
+        }
 
         public FacadeBrowserDialog(
             IReadOnlyList<FacadeModule> modules,
@@ -31,7 +57,6 @@ namespace Lichen.UI
             Resizable = true;
 
             WasApplied = false;
-            StretchHeight = true;
 
             _selectedPreview = new ImageView
             {
@@ -58,15 +83,68 @@ namespace Lichen.UI
                 TextAlignment = TextAlignment.Center
             };
 
-            _stretchHeightCheckBox = new CheckBox
+            _verticalStretchRadio = new RadioButton
             {
-                Text = "Stretch facade to target height",
+                Text = "Stretch modules vertically to fit facade",
                 Checked = true
             };
 
-            _stretchHeightCheckBox.CheckedChanged += delegate
+            _verticalRepeatRadio = new RadioButton(_verticalStretchRadio)
             {
-                StretchHeight = _stretchHeightCheckBox.Checked == true;
+                Text = "Repeat modules vertically if space permits"
+            };
+
+            _horizontalStretchRadio = new RadioButton
+            {
+                Text = "Stretch modules horizontally to fit facade",
+                Checked = true
+            };
+
+            _horizontalPreserveRadio = new RadioButton(_horizontalStretchRadio)
+            {
+                Text = "Preserve module width"
+            };
+
+            _alignmentEvenRadio = new RadioButton
+            {
+                Text = "Even spacing",
+                Checked = true
+            };
+
+            _alignmentLeftRadio = new RadioButton(_alignmentEvenRadio)
+            {
+                Text = "Left"
+            };
+
+            _alignmentCentreRadio = new RadioButton(_alignmentEvenRadio)
+            {
+                Text = "Centre"
+            };
+
+            _alignmentRightRadio = new RadioButton(_alignmentEvenRadio)
+            {
+                Text = "Right"
+            };
+
+            _alignmentLayout = new DynamicLayout
+            {
+                Spacing = new Size(5, 4)
+            };
+
+            _alignmentLayout.Add(new Label { Text = "Horizontal Alignment" });
+            _alignmentLayout.Add(_alignmentEvenRadio);
+            _alignmentLayout.Add(_alignmentLeftRadio);
+            _alignmentLayout.Add(_alignmentCentreRadio);
+            _alignmentLayout.Add(_alignmentRightRadio);
+
+            _horizontalStretchRadio.CheckedChanged += delegate
+            {
+                UpdateAlignmentEnabledState();
+            };
+
+            _horizontalPreserveRadio.CheckedChanged += delegate
+            {
+                UpdateAlignmentEnabledState();
             };
 
             _applyButton = new Button
@@ -107,7 +185,16 @@ namespace Lichen.UI
             selectedPanel.Add(_selectedDescription);
 
             if (!browseOnly)
-                selectedPanel.Add(_stretchHeightCheckBox);
+            {
+                selectedPanel.Add(new Label { Text = "Vertical Stretch" });
+                selectedPanel.Add(_verticalStretchRadio);
+                selectedPanel.Add(_verticalRepeatRadio);
+
+                selectedPanel.Add(new Label { Text = "Horizontal Stretch" });
+                selectedPanel.Add(_horizontalStretchRadio);
+                selectedPanel.Add(_horizontalPreserveRadio);
+                selectedPanel.Add(_alignmentLayout);
+            }
 
             selectedPanel.Add(null);
 
@@ -147,6 +234,17 @@ namespace Lichen.UI
             mainLayout.EndHorizontal();
 
             Content = mainLayout;
+            UpdateAlignmentEnabledState();
+        }
+
+        private void UpdateAlignmentEnabledState()
+        {
+            bool enabled = _horizontalPreserveRadio.Checked;
+
+            _alignmentEvenRadio.Enabled = enabled;
+            _alignmentLeftRadio.Enabled = enabled;
+            _alignmentCentreRadio.Enabled = enabled;
+            _alignmentRightRadio.Enabled = enabled;
         }
 
         private Control CreateFacadeGrid(

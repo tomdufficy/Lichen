@@ -5,6 +5,22 @@ using System.Collections.Generic;
 
 namespace Lichen.Core
 {
+    public enum HorizontalAlignmentMode
+    {
+        EvenSpacing,
+        Left,
+        Centre,
+        Right
+    }
+
+    public class FacadePlacementOptions
+    {
+        public bool StretchVertically { get; set; } = true;
+        public bool StretchHorizontally { get; set; } = true;
+        public HorizontalAlignmentMode HorizontalAlignment { get; set; } =
+            HorizontalAlignmentMode.EvenSpacing;
+    }
+
     public class FacadePlacer
     {
         private const double VerticalAngleToleranceDegrees = 15.0;
@@ -35,21 +51,17 @@ namespace Lichen.Core
             RhinoDoc doc,
             BrepFace face,
             int blockDefIndex,
-            bool stretchHeight)
+            FacadePlacementOptions options)
         {
-            // build consistent axes from face normal and world Z
             Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
             normal.Unitize();
             if (!face.OrientationIsReversed) normal = -normal;
 
-            // xAxis runs horizontally along the wall
             Vector3d xAxis = Vector3d.CrossProduct(Vector3d.ZAxis, normal);
             xAxis.Unitize();
 
-            // get face world bounding box
             BoundingBox faceBBox = face.GetBoundingBox(true);
 
-            // measure face width along xAxis
             double minX = double.MaxValue;
             double maxX = double.MinValue;
 
@@ -64,13 +76,11 @@ namespace Lichen.Core
             double faceHeight = faceBBox.Max.Z - faceBBox.Min.Z;
             double minZ = faceBBox.Min.Z;
 
-            // find bottom left corner in world space
             Point3d faceCentre = faceBBox.Center;
             Point3d bottomLeft = faceCentre
                 + xAxis * (minX - Vector3d.Multiply(new Vector3d(faceCentre), xAxis))
                 + Vector3d.ZAxis * (minZ - faceCentre.Z);
 
-            // get block definition and measure its bounding box
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
             BoundingBox moduleBBox = BoundingBox.Empty;
             foreach (var obj in blockDef.GetObjects())
@@ -91,19 +101,68 @@ namespace Lichen.Core
                 return;
             }
 
-            // compute panel counts and stretch
-            int countX = Math.Max(1, (int)Math.Round(faceWidth / moduleWidth));
-            int countZ = Math.Max(1, (int)Math.Round(faceHeight / moduleHeight));
+            int countX;
+            double stretchX;
+            double horizontalStartOffset;
+            double horizontalStep;
 
-            double stretchX = faceWidth / (countX * moduleWidth);
-            double stretchZ = stretchHeight
-                ? faceHeight / (countZ * moduleHeight)
-                : 1.0;
+            if (options.StretchHorizontally)
+            {
+                countX = Math.Max(1, (int)Math.Round(faceWidth / moduleWidth));
+                stretchX = faceWidth / (countX * moduleWidth);
+                horizontalStartOffset = 0.0;
+                horizontalStep = moduleWidth * stretchX;
+            }
+            else
+            {
+                countX = Math.Max(1, (int)Math.Floor(faceWidth / moduleWidth));
+                stretchX = 1.0;
+
+                double usedWidth = countX * moduleWidth;
+                double remainingWidth = faceWidth - usedWidth;
+
+                switch (options.HorizontalAlignment)
+                {
+                    case HorizontalAlignmentMode.Left:
+                        horizontalStartOffset = 0.0;
+                        horizontalStep = moduleWidth;
+                        break;
+
+                    case HorizontalAlignmentMode.Centre:
+                        horizontalStartOffset = remainingWidth * 0.5;
+                        horizontalStep = moduleWidth;
+                        break;
+
+                    case HorizontalAlignmentMode.Right:
+                        horizontalStartOffset = remainingWidth;
+                        horizontalStep = moduleWidth;
+                        break;
+
+                    default:
+                        double gap = remainingWidth / (countX + 1);
+                        horizontalStartOffset = gap;
+                        horizontalStep = moduleWidth + gap;
+                        break;
+                }
+            }
+
+            int countZ;
+            double stretchZ;
+
+            if (options.StretchVertically)
+            {
+                countZ = Math.Max(1, (int)Math.Round(faceHeight / moduleHeight));
+                stretchZ = faceHeight / (countZ * moduleHeight);
+            }
+            else
+            {
+                countZ = Math.Max(1, (int)Math.Floor(faceHeight / moduleHeight));
+                stretchZ = 1.0;
+            }
 
             RhinoApp.WriteLine("Lichen: placing {0}x{1} panels on face", countX, countZ);
             RhinoApp.WriteLine("  stretch {0:F3} x {1:F3}", stretchX, stretchZ);
 
-            // build orientation transform
             Plane sourcePlane = Plane.WorldXY;
             Vector3d tX = xAxis;
             Vector3d tY = normal;
@@ -117,11 +176,9 @@ namespace Lichen.Core
                 Vector3d.CrossProduct(tZ, tX));
             Transform orient = Transform.PlaneToPlane(sourcePlane, targetPlane);
 
-            // zero module to origin
             Transform moveToOrigin = Transform.Translation(
                 -moduleBBox.Min.X, 0.0, -moduleBBox.Min.Z);
 
-            // scale
             Transform scale = Transform.Scale(Plane.WorldXY, stretchX, 1.0, stretchZ);
 
             var attribs = new Rhino.DocObjects.ObjectAttributes();
@@ -132,11 +189,10 @@ namespace Lichen.Core
                 for (int row = 0; row < countZ; row++)
                 {
                     Point3d panelPos = bottomLeft
-                        + xAxis * (col * moduleWidth * stretchX)
+                        + xAxis * (horizontalStartOffset + col * horizontalStep)
                         + Vector3d.ZAxis * (row * moduleHeight * stretchZ);
 
                     Transform translate = Transform.Translation(panelPos - Point3d.Origin);
-
                     Transform full = translate * orient * scale * moveToOrigin;
 
                     doc.Objects.AddInstanceObject(blockDefIndex, full, attribs);
