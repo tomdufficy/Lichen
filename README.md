@@ -43,97 +43,137 @@ Lichen includes a small library of example facade modules. The library is intend
 
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_000.png" width="100%"><br>
-      <sub>Lichen_Facade_000</sub>
+      <strong>Lichen_Facade_000</strong><br>
+      <sub>3600 x 3500 mm</sub><br>
+      <sub>Basic placeholder facade.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_001.png" width="100%"><br>
-      <sub>Lichen_Facade_001</sub>
+      <strong>Lichen_Facade_001</strong><br>
+      <sub>3100 x 3000 mm</sub><br>
+      <sub>Grey brick facade with a metal handrail.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_002.png" width="100%"><br>
-      <sub>Lichen_Facade_002</sub>
+      <strong>Lichen_Facade_002</strong><br>
+      <sub>3500 x 3000 mm</sub><br>
+      <sub>Beige brick facade with complex window.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_003.png" width="100%"><br>
-      <sub>Lichen_Facade_003</sub>
+      <strong>Lichen_Facade_003</strong><br>
+      <sub>3500 x 3000 mm</sub><br>
+      <sub>Red brick facade with surface articulation, a handrail, and a loggia.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_004_a.png" width="100%"><br>
-      <sub>Lichen_Facade_004_a</sub>
+      <strong>Lichen_Facade_004_a</strong><br>
+      <sub>3600 x 4000 mm</sub><br>
+      <sub>Two tone timber facade with a concrete base and a large door/window. Suitable for a public ground floor.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_004_b.png" width="100%"><br>
-      <sub>Lichen_Facade_004_b</sub>
+      <strong>Lichen_Facade_004_b</strong><br>
+      <sub>3600 x 4000 mm</sub><br>
+      <sub>Two tone timber facade with a concrete base and a large window. Suitable for a public ground floor.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_004_c.png" width="100%"><br>
-      <sub>Lichen_Facade_004_c</sub>
+      <strong>Lichen_Facade_004_c</strong><br>
+      <sub>3600 x 3000 mm</sub><br>
+      <sub>Two tone timber facade with a handrail/french balcony and a large window. Suitable for residential.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_005_a.png" width="100%"><br>
-      <sub>Lichen_Facade_005_a</sub>
+      <strong>Lichen_Facade_005_a</strong><br>
+      <sub>3600 x 4000 mm</sub><br>
+      <sub>Two tone brick facade with a very large window/door. Suitable for a public ground floor or main entrance.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_005_b.png" width="100%"><br>
-      <sub>Lichen_Facade_005_b</sub>
+      <strong>Lichen_Facade_005_b</strong><br>
+      <sub>3600 x 4000 mm</sub><br>
+      <sub>Two tone brick facade with a very large window. Window is raised making it suitable for a residential ground floor.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_005_c.png" width="100%"><br>
-      <sub>Lichen_Facade_005_c</sub>
+      <strong>Lichen_Facade_005_c</strong><br>
+      <sub>3600 x 3000 mm</sub><br>
+      <sub>Two tone brick facade with window/door and french balcony/handrail with a zig-zag pattern. Suitable for residential.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_005_d.png" width="100%"><br>
-      <sub>Lichen_Facade_005_d</sub>
+      <strong>Lichen_Facade_005_d</strong><br>
+      <sub>3600 x 3000 mm</sub><br>
+      <sub>Two tone brick facade with window/door and deep loggia balcony/handrail with a zig-zag pattern. Suitable for residential.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_006.png" width="100%"><br>
-      <sub>Lichen_Facade_006</sub>
+      <strong>Lichen_Facade_006</strong><br>
+      <sub>2980 x 3000 mm</sub><br>
+      <sub>Blue alu facade with a lowered metal facade expression and three-part window.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_007_a.png" width="100%"><br>
-      <sub>Lichen_Facade_007_a</sub>
+      <strong>Lichen_Facade_007_a</strong><br>
+      <sub>2980 x 3500 mm</sub><br>
+      <sub>Yellow brick facade with an awning and a 2-part window. Includes timber columns on the interior.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_007_b.png" width="100%"><br>
-      <sub>Lichen_Facade_007_b</sub>
+      <strong>Lichen_Facade_007_b</strong><br>
+      <sub>2980 x 3500 mm</sub><br>
+      <sub>Yellow brick facade with an awning and a full-height 2-part window. Includes timber columns on the interior.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_008.png" width="100%"><br>
-      <sub>Lichen_Facade_008</sub>
+      <strong>Lichen_Facade_008</strong><br>
+      <sub>6000 x 4500 mm</sub><br>
+      <sub>Red brick facade with a wide, 4-part window/door and a zig-zag pattern expression above. Suitable for a public ground floor.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_009_a.png" width="100%"><br>
-      <sub>Lichen_Facade_009_a</sub>
+      <strong>Lichen_Facade_009_a</strong><br>
+      <sub>3400 x 3200 mm</sub><br>
+      <sub>Blue metal profile facade, with a 3-part window. Suitable for residential.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_009_b.png" width="100%"><br>
-      <sub>Lichen_Facade_009_b</sub>
+      <strong>Lichen_Facade_009_b</strong><br>
+      <sub>3400 x 3200 mm</sub><br>
+      <sub>Blue metal profile facade, with an off-center tall single window. Suitable for residential.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_010_a.png" width="100%"><br>
-      <sub>Lichen_Facade_010_a</sub>
+      <strong>Lichen_Facade_010_a</strong><br>
+      <sub>6000 x 8500 mm</sub><br>
+      <sub>Tan stone facade with a very large glass window/door opening and a zig-zag pattern detail. Very wide and high, suitable for a public ground floor.</sub>
     </td>
   </tr>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_010_b.png" width="100%"><br>
-      <sub>Lichen_Facade_010_b</sub>
+      <strong>Lichen_Facade_010_b</strong><br>
+      <sub>4000 x 8500 mm</sub><br>
+      <sub>Tan stone facade with a very large glass window/door opening and a zig-zag pattern detail. High, suitable for a public ground floor.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" valign="top" width="33%">
       <img src="assets/facade-library/Lichen_Facade_010_c.png" width="100%"><br>
-      <sub>Lichen_Facade_010_c</sub>
+      <strong>Lichen_Facade_010_c</strong><br>
+      <sub>2000 x 3730 mm</sub><br>
+      <sub>Tan stone facade with glass window/door opening and a zig-zag pattern detail. Suitable for a public or residential.</sub>
     </td>
   </tr>
 </table>

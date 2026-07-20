@@ -325,7 +325,7 @@ def generate_markdown_catalogue(repo_root, metadata):
 
             if width_mm is not None and height_mm is not None:
                 catalogue.append(
-                    '      <sub>{} × {} mm</sub><br>'.format(
+                    '      <sub>{} x {} mm</sub><br>'.format(
                         width_mm,
                         height_mm
                     )

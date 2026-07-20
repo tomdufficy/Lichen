@@ -1,0 +1,102 @@
+{
+  "Lichen_Facade_000": {
+    "description": "Basic placeholder facade.", 
+    "heightMm": 3500, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_001": {
+    "description": "Grey brick facade with a metal handrail.", 
+    "heightMm": 3000, 
+    "widthMm": 3100
+  }, 
+  "Lichen_Facade_002": {
+    "description": "Beige brick facade with complex window.", 
+    "heightMm": 3000, 
+    "widthMm": 3500
+  }, 
+  "Lichen_Facade_003": {
+    "description": "Red brick facade with surface articulation, a handrail, and a loggia.", 
+    "heightMm": 3000, 
+    "widthMm": 3500
+  }, 
+  "Lichen_Facade_004_a": {
+    "description": "Two tone timber facade with a concrete base and a large door/window. Suitable for a public ground floor.", 
+    "heightMm": 4000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_004_b": {
+    "description": "Two tone timber facade with a concrete base and a large window. Suitable for a public ground floor.", 
+    "heightMm": 4000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_004_c": {
+    "description": "Two tone timber facade with a handrail/french balcony and a large window. Suitable for residential.", 
+    "heightMm": 3000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_005_a": {
+    "description": "Two tone brick facade with a very large window/door. Suitable for a public ground floor or main entrance.", 
+    "heightMm": 4000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_005_b": {
+    "description": "Two tone brick facade with a very large window. Window is raised making it suitable for a residential ground floor.", 
+    "heightMm": 4000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_005_c": {
+    "description": "Two tone brick facade with window/door and french balcony/handrail with a zig-zag pattern. Suitable for residential.", 
+    "heightMm": 3000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_005_d": {
+    "description": "Two tone brick facade with window/door and deep loggia balcony/handrail with a zig-zag pattern. Suitable for residential.", 
+    "heightMm": 3000, 
+    "widthMm": 3600
+  }, 
+  "Lichen_Facade_006": {
+    "description": "Blue alu facade with a lowered metal facade expression and three-part window.", 
+    "heightMm": 3000, 
+    "widthMm": 2980
+  }, 
+  "Lichen_Facade_007_a": {
+    "description": "Yellow brick facade with an awning and a 2-part window. Includes timber columns on the interior.", 
+    "heightMm": 3500, 
+    "widthMm": 2980
+  }, 
+  "Lichen_Facade_007_b": {
+    "description": "Yellow brick facade with an awning and a full-height 2-part window. Includes timber columns on the interior.", 
+    "heightMm": 3500, 
+    "widthMm": 2980
+  }, 
+  "Lichen_Facade_008": {
+    "description": "Red brick facade with a wide, 4-part window/door and a zig-zag pattern expression above. Suitable for a public ground floor.", 
+    "heightMm": 4500, 
+    "widthMm": 6000
+  }, 
+  "Lichen_Facade_009_a": {
+    "description": "Blue metal profile facade, with a 3-part window. Suitable for residential.", 
+    "heightMm": 3200, 
+    "widthMm": 3400
+  }, 
+  "Lichen_Facade_009_b": {
+    "description": "Blue metal profile facade, with an off-center tall single window. Suitable for residential.", 
+    "heightMm": 3200, 
+    "widthMm": 3400
+  }, 
+  "Lichen_Facade_010_a": {
+    "description": "Tan stone facade with a very large glass window/door opening and a zig-zag pattern detail. Very wide and high, suitable for a public ground floor.", 
+    "heightMm": 8500, 
+    "widthMm": 6000
+  }, 
+  "Lichen_Facade_010_b": {
+    "description": "Tan stone facade with a very large glass window/door opening and a zig-zag pattern detail. High, suitable for a public ground floor.", 
+    "heightMm": 8500, 
+    "widthMm": 4000
+  }, 
+  "Lichen_Facade_010_c": {
+    "description": "Tan stone facade with glass window/door opening and a zig-zag pattern detail. Suitable for a public or residential.", 
+    "heightMm": 3730, 
+    "widthMm": 2000
+  }
+}
