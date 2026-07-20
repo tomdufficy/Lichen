@@ -47,6 +47,8 @@ namespace Lichen.Commands
             FacadeModule selectedModule =
                 dialog.SelectedModule;
 
+            bool stretchHeight = dialog.StretchHeight;
+
             RhinoApp.WriteLine(
                 "Lichen: using module {0}",
                 selectedModule.Name);
@@ -120,7 +122,8 @@ namespace Lichen.Commands
                     FacadePlacer.PlaceFacadesOnFace(
                         doc,
                         face,
-                        blockDefIndex);
+                        blockDefIndex,
+                        stretchHeight);
                 }
             }
 

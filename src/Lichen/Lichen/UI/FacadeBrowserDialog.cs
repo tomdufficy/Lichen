@@ -13,10 +13,13 @@ namespace Lichen.UI
         private readonly Label _selectedDescription;
         private readonly Label _selectedDimensions;
         private readonly Button _applyButton;
+        private readonly CheckBox _stretchHeightCheckBox;
 
         public FacadeModule SelectedModule { get; private set; }
 
         public bool WasApplied { get; private set; }
+
+        public bool StretchHeight { get; private set; }
 
         public FacadeBrowserDialog(
             IReadOnlyList<FacadeModule> modules,
@@ -28,6 +31,7 @@ namespace Lichen.UI
             Resizable = true;
 
             WasApplied = false;
+            StretchHeight = true;
 
             _selectedPreview = new ImageView
             {
@@ -52,6 +56,17 @@ namespace Lichen.UI
             {
                 Text = string.Empty,
                 TextAlignment = TextAlignment.Center
+            };
+
+            _stretchHeightCheckBox = new CheckBox
+            {
+                Text = "Stretch facade to target height",
+                Checked = true
+            };
+
+            _stretchHeightCheckBox.CheckedChanged += delegate
+            {
+                StretchHeight = _stretchHeightCheckBox.Checked == true;
             };
 
             _applyButton = new Button
@@ -90,6 +105,10 @@ namespace Lichen.UI
             selectedPanel.AddCentered(_selectedName);
             selectedPanel.AddCentered(_selectedDimensions);
             selectedPanel.Add(_selectedDescription);
+
+            if (!browseOnly)
+                selectedPanel.Add(_stretchHeightCheckBox);
+
             selectedPanel.Add(null);
 
             Button closeButton = new Button

@@ -31,7 +31,11 @@ namespace Lichen.Core
             return wallFaces;
         }
 
-        public static void PlaceFacadesOnFace(RhinoDoc doc, BrepFace face, int blockDefIndex)
+        public static void PlaceFacadesOnFace(
+            RhinoDoc doc,
+            BrepFace face,
+            int blockDefIndex,
+            bool stretchHeight)
         {
             // build consistent axes from face normal and world Z
             Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
@@ -92,7 +96,9 @@ namespace Lichen.Core
             int countZ = Math.Max(1, (int)Math.Round(faceHeight / moduleHeight));
 
             double stretchX = faceWidth / (countX * moduleWidth);
-            double stretchZ = faceHeight / (countZ * moduleHeight);
+            double stretchZ = stretchHeight
+                ? faceHeight / (countZ * moduleHeight)
+                : 1.0;
 
             RhinoApp.WriteLine("Lichen: placing {0}x{1} panels on face", countX, countZ);
             RhinoApp.WriteLine("  stretch {0:F3} x {1:F3}", stretchX, stretchZ);
