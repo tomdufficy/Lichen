@@ -93,6 +93,48 @@ Lichen includes a small library of example facade modules. The library is intend
       <img src="assets/facade-library/Lichen_Facade_005_d.png" width="100%"><br>
       <sub>Lichen_Facade_005_d</sub>
     </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_006.png" width="100%"><br>
+      <sub>Lichen_Facade_006</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_007_a.png" width="100%"><br>
+      <sub>Lichen_Facade_007_a</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_007_b.png" width="100%"><br>
+      <sub>Lichen_Facade_007_b</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_008.png" width="100%"><br>
+      <sub>Lichen_Facade_008</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_009_a.png" width="100%"><br>
+      <sub>Lichen_Facade_009_a</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_009_b.png" width="100%"><br>
+      <sub>Lichen_Facade_009_b</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_010_a.png" width="100%"><br>
+      <sub>Lichen_Facade_010_a</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_010_b.png" width="100%"><br>
+      <sub>Lichen_Facade_010_b</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="assets/facade-library/Lichen_Facade_010_c.png" width="100%"><br>
+      <sub>Lichen_Facade_010_c</sub>
+    </td>
   </tr>
 </table>
 <!-- FACADE_LIBRARY_END -->
