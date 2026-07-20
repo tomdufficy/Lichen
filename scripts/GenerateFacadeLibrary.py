@@ -1,3 +1,4 @@
+import json
 import os
 import Rhino
 import rhinoscriptsyntax as rs
@@ -13,6 +14,7 @@ GRID_COLUMNS = 3
 SOURCE_RELATIVE = os.path.join("src", "Lichen", "Lichen", "facades")
 OUTPUT_RELATIVE = os.path.join("assets", "facade-library")
 README_RELATIVE = "README.md"
+METADATA_FILENAME = "facades.json"
 
 FACADE_LIBRARY_START = "<!-- FACADE_LIBRARY_START -->"
 FACADE_LIBRARY_END = "<!-- FACADE_LIBRARY_END -->"
@@ -60,17 +62,25 @@ def get_generation_mode():
     return mode
 
 
+def should_ignore_object(obj):
+    if obj is None or obj.IsHidden or obj.IsDeleted:
+        return True
+
+    layer = sc.doc.Layers[obj.Attributes.LayerIndex]
+    layer_name = layer.FullPath.lower() if layer else ""
+
+    return (
+        "guide" in layer_name or
+        "facade-line" in layer_name or
+        "outside" in layer_name
+    )
+
+
 def get_document_bounding_box():
     bbox = Rhino.Geometry.BoundingBox.Empty
 
     for obj in sc.doc.Objects:
-        if obj is None or obj.IsHidden or obj.IsDeleted:
-            continue
-
-        layer = sc.doc.Layers[obj.Attributes.LayerIndex]
-        layer_name = layer.FullPath.lower() if layer else ""
-
-        if "guide" in layer_name or "facade-line" in layer_name or "outside" in layer_name:
+        if should_ignore_object(obj):
             continue
 
         obj_bbox = obj.Geometry.GetBoundingBox(True)
@@ -142,7 +152,79 @@ def capture_view(output_path):
     return True
 
 
-def process_file(rhino_file, output_file):
+def find_facade_block(base_name):
+    exact_match = None
+    first_available = None
+
+    for definition in sc.doc.InstanceDefinitions:
+        if definition is None or definition.IsDeleted:
+            continue
+
+        if first_available is None:
+            first_available = definition
+
+        if definition.Name.lower() == base_name.lower():
+            exact_match = definition
+            break
+
+    if exact_match is not None:
+        return exact_match
+
+    return first_available
+
+
+def get_block_bounding_box(block_definition):
+    bbox = Rhino.Geometry.BoundingBox.Empty
+
+    if block_definition is None:
+        return bbox
+
+    for obj in block_definition.GetObjects():
+        if should_ignore_object(obj):
+            continue
+
+        obj_bbox = obj.Geometry.GetBoundingBox(True)
+        if obj_bbox.IsValid:
+            bbox.Union(obj_bbox)
+
+    return bbox
+
+
+def extract_facade_metadata(base_name):
+    block_definition = find_facade_block(base_name)
+
+    if block_definition is None:
+        print("WARNING: no block definition found for {}".format(base_name))
+        return {
+            "description": "",
+            "widthMm": None,
+            "heightMm": None
+        }
+
+    description = block_definition.Description or ""
+    description = description.strip()
+
+    bbox = get_block_bounding_box(block_definition)
+    width_mm = None
+    height_mm = None
+
+    if bbox.IsValid:
+        unit_scale = Rhino.RhinoMath.UnitScale(
+            sc.doc.ModelUnitSystem,
+            Rhino.UnitSystem.Millimeters
+        )
+
+        width_mm = int(round((bbox.Max.X - bbox.Min.X) * unit_scale))
+        height_mm = int(round((bbox.Max.Z - bbox.Min.Z) * unit_scale))
+
+    return {
+        "description": description,
+        "widthMm": width_mm,
+        "heightMm": height_mm
+    }
+
+
+def process_file(rhino_file, output_file, generate_image):
     sc.doc.Modified = False
 
     rs.Command("_-New _None", False)
@@ -152,25 +234,60 @@ def process_file(rhino_file, output_file):
     if not ok:
         print("Failed to import file:")
         print(rhino_file)
-        return False
+        return None
 
     rs.UnselectAllObjects()
     sc.doc.Views.Redraw()
 
-    if not set_catalogue_view():
-        return False
+    base_name = os.path.splitext(os.path.basename(rhino_file))[0]
+    metadata = extract_facade_metadata(base_name)
 
-    rs.UnselectAllObjects()
-    sc.doc.Views.Redraw()
+    if generate_image:
+        if not set_catalogue_view():
+            return None
 
-    if not capture_view(output_file):
-        return False
+        rs.UnselectAllObjects()
+        sc.doc.Views.Redraw()
+
+        if not capture_view(output_file):
+            return None
 
     sc.doc.Modified = False
-    return True
+    return metadata
 
 
-def generate_markdown_catalogue(repo_root):
+def write_metadata_json(output_folder, metadata):
+    metadata_path = os.path.join(output_folder, METADATA_FILENAME)
+
+    with open(metadata_path, "w") as metadata_file:
+        json.dump(
+            metadata,
+            metadata_file,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=True
+        )
+        metadata_file.write("\n")
+
+    print("Updated facade metadata:")
+    print(metadata_path)
+
+
+def html_escape(value):
+    if value is None:
+        return ""
+
+    return (
+        str(value)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    )
+
+
+def generate_markdown_catalogue(repo_root, metadata):
     image_folder = os.path.join(repo_root, OUTPUT_RELATIVE)
     readme_path = os.path.join(repo_root, README_RELATIVE)
 
@@ -193,10 +310,30 @@ def generate_markdown_catalogue(repo_root):
         for image in row:
             title = os.path.splitext(image)[0]
             src = "assets/facade-library/{}".format(image)
+            item = metadata.get(title, {})
+            description = html_escape(item.get("description", ""))
+            width_mm = item.get("widthMm")
+            height_mm = item.get("heightMm")
 
-            catalogue.append('    <td align="center" width="{}%">'.format(int(100 / GRID_COLUMNS)))
+            catalogue.append(
+                '    <td align="center" valign="top" width="{}%">'.format(
+                    int(100 / GRID_COLUMNS)
+                )
+            )
             catalogue.append('      <img src="{}" width="100%"><br>'.format(src))
-            catalogue.append('      <sub>{}</sub>'.format(title))
+            catalogue.append('      <strong>{}</strong><br>'.format(html_escape(title)))
+
+            if width_mm is not None and height_mm is not None:
+                catalogue.append(
+                    '      <sub>{} × {} mm</sub><br>'.format(
+                        width_mm,
+                        height_mm
+                    )
+                )
+
+            if description:
+                catalogue.append('      <sub>{}</sub>'.format(description))
+
             catalogue.append("    </td>")
 
         catalogue.append("  </tr>")
@@ -209,8 +346,8 @@ def generate_markdown_catalogue(repo_root):
         print(readme_path)
         return
 
-    with open(readme_path, "r") as f:
-        readme = f.read()
+    with open(readme_path, "r") as readme_file:
+        readme = readme_file.read()
 
     start_index = readme.find(FACADE_LIBRARY_START)
     end_index = readme.find(FACADE_LIBRARY_END)
@@ -224,8 +361,8 @@ def generate_markdown_catalogue(repo_root):
 
     updated = before + "\n" + "\n".join(catalogue) + after
 
-    with open(readme_path, "w") as f:
-        f.write(updated)
+    with open(readme_path, "w") as readme_file:
+        readme_file.write(updated)
 
     print("Updated README facade library section:")
     print(readme_path)
@@ -275,30 +412,43 @@ def main():
     generated = 0
     skipped = 0
     failed = 0
+    metadata = {}
 
     for rhino_file in facade_files:
         base_name = os.path.splitext(os.path.basename(rhino_file))[0]
         output_file = os.path.join(output_folder, base_name + ".png")
+        generate_image = redo_all or not os.path.exists(output_file)
 
-        if os.path.exists(output_file) and not redo_all:
-            print("Skipping existing: {}".format(base_name))
-            skipped += 1
-            continue
-
-        print("Generating: {}".format(base_name))
-
-        if process_file(rhino_file, output_file):
-            generated += 1
+        if generate_image:
+            print("Generating image and metadata: {}".format(base_name))
         else:
+            print("Updating metadata, keeping existing image: {}".format(base_name))
+
+        item_metadata = process_file(
+            rhino_file,
+            output_file,
+            generate_image
+        )
+
+        if item_metadata is None:
             failed += 1
             print("FAILED: {}".format(base_name))
+            continue
 
-    generate_markdown_catalogue(repo_root)
+        metadata[base_name] = item_metadata
+
+        if generate_image:
+            generated += 1
+        else:
+            skipped += 1
+
+    write_metadata_json(output_folder, metadata)
+    generate_markdown_catalogue(repo_root, metadata)
 
     print("")
     print("Done.")
-    print("Generated: {}".format(generated))
-    print("Skipped: {}".format(skipped))
+    print("Generated images: {}".format(generated))
+    print("Kept existing images: {}".format(skipped))
     print("Failed: {}".format(failed))
 
     if os.environ.get("LICHEN_CLOSE_RHINO", "0") == "1":
