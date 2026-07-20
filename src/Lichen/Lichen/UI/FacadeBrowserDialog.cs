@@ -67,7 +67,8 @@ namespace Lichen.UI
             {
                 Text = "Select a facade",
                 TextAlignment = TextAlignment.Center,
-                Wrap = WrapMode.Word
+                Wrap = WrapMode.Word,
+                Font = new Font(SystemFont.Bold, 14)
             };
 
             _selectedDescription = new Label
@@ -131,7 +132,7 @@ namespace Lichen.UI
                 Spacing = new Size(5, 4)
             };
 
-            _alignmentLayout.Add(new Label { Text = "Horizontal Alignment" });
+            _alignmentLayout.Add(CreateHeadingLabel("Horizontal Alignment"));
             _alignmentLayout.Add(_alignmentEvenRadio);
             _alignmentLayout.Add(_alignmentLeftRadio);
             _alignmentLayout.Add(_alignmentCentreRadio);
@@ -186,11 +187,11 @@ namespace Lichen.UI
 
             if (!browseOnly)
             {
-                selectedPanel.Add(new Label { Text = "Vertical Stretch" });
+                selectedPanel.Add(CreateHeadingLabel("Vertical Stretch"));
                 selectedPanel.Add(_verticalStretchRadio);
                 selectedPanel.Add(_verticalRepeatRadio);
 
-                selectedPanel.Add(new Label { Text = "Horizontal Stretch" });
+                selectedPanel.Add(CreateHeadingLabel("Horizontal Stretch"));
                 selectedPanel.Add(_horizontalStretchRadio);
                 selectedPanel.Add(_horizontalPreserveRadio);
                 selectedPanel.Add(_alignmentLayout);
@@ -235,6 +236,15 @@ namespace Lichen.UI
 
             Content = mainLayout;
             UpdateAlignmentEnabledState();
+        }
+
+        private static Label CreateHeadingLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                Font = new Font(SystemFont.Bold, 11)
+            };
         }
 
         private void UpdateAlignmentEnabledState()
