@@ -10,6 +10,8 @@ namespace Lichen.UI
     {
         private readonly ImageView _selectedPreview;
         private readonly Label _selectedName;
+        private readonly Label _selectedDescription;
+        private readonly Label _selectedDimensions;
         private readonly Button _applyButton;
 
         public FacadeModule SelectedModule { get; private set; }
@@ -21,7 +23,7 @@ namespace Lichen.UI
             bool browseOnly = true)
         {
             Title = "Lichen Facade Library";
-            ClientSize = new Size(1000, 700);
+            ClientSize = new Size(1100, 720);
             Padding = new Padding(10);
             Resizable = true;
 
@@ -35,6 +37,20 @@ namespace Lichen.UI
             _selectedName = new Label
             {
                 Text = "Select a facade",
+                TextAlignment = TextAlignment.Center,
+                Wrap = WrapMode.Word
+            };
+
+            _selectedDescription = new Label
+            {
+                Text = string.Empty,
+                TextAlignment = TextAlignment.Left,
+                Wrap = WrapMode.Word
+            };
+
+            _selectedDimensions = new Label
+            {
+                Text = string.Empty,
                 TextAlignment = TextAlignment.Center
             };
 
@@ -58,18 +74,22 @@ namespace Lichen.UI
             Scrollable scrollableGrid = new Scrollable
             {
                 Content = facadeGrid,
-                ExpandContentWidth = true,
+                ExpandContentWidth = false,
                 Border = BorderType.None
             };
 
             DynamicLayout selectedPanel = new DynamicLayout
             {
                 Padding = new Padding(10),
-                Spacing = new Size(5, 10)
+                Spacing = new Size(5, 10),
+                Width = 330,
+                MinimumSize = new Size(330, 0)
             };
 
             selectedPanel.AddCentered(_selectedPreview);
             selectedPanel.AddCentered(_selectedName);
+            selectedPanel.AddCentered(_selectedDimensions);
+            selectedPanel.Add(_selectedDescription);
             selectedPanel.Add(null);
 
             Button closeButton = new Button
@@ -117,7 +137,7 @@ namespace Lichen.UI
 
             TableLayout table = new TableLayout
             {
-                Spacing = new Size(10, 10)
+                Spacing = new Size(4, 4)
             };
 
             for (int index = 0;
@@ -138,7 +158,7 @@ namespace Lichen.UI
                             new TableCell(
                                 CreateFacadeTile(
                                     modules[moduleIndex]),
-                                true));
+                                false));
                     }
                     else
                     {
@@ -165,26 +185,11 @@ namespace Lichen.UI
                 preview.Image = new Bitmap(module.PreviewPath);
             }
 
-            Label nameLabel = new Label
-            {
-                Text = module.Name,
-                TextAlignment = TextAlignment.Center,
-                Wrap = WrapMode.Word
-            };
-
-            DynamicLayout tileLayout = new DynamicLayout
-            {
-                Padding = new Padding(5),
-                Spacing = new Size(5, 5)
-            };
-
-            tileLayout.AddCentered(preview);
-            tileLayout.AddCentered(nameLabel);
-
             Panel tilePanel = new Panel
             {
-                Content = tileLayout,
-                MinimumSize = new Size(210, 230)
+                Content = preview,
+                Padding = new Padding(0),
+                MinimumSize = new Size(180, 180)
             };
 
             tilePanel.MouseDown += delegate
@@ -197,11 +202,6 @@ namespace Lichen.UI
                 SelectModule(module);
             };
 
-            nameLabel.MouseDown += delegate
-            {
-                SelectModule(module);
-            };
-
             return tilePanel;
         }
 
@@ -209,6 +209,8 @@ namespace Lichen.UI
         {
             SelectedModule = module;
             _selectedName.Text = module.Name;
+            _selectedDescription.Text = module.Description ?? string.Empty;
+            _selectedDimensions.Text = FormatDimensions(module);
             _applyButton.Enabled = true;
 
             if (!string.IsNullOrWhiteSpace(module.PreviewPath) &&
@@ -221,6 +223,17 @@ namespace Lichen.UI
             {
                 _selectedPreview.Image = null;
             }
+        }
+
+        private static string FormatDimensions(FacadeModule module)
+        {
+            if (module.WidthMm <= 0 || module.HeightMm <= 0)
+                return string.Empty;
+
+            return string.Format(
+                "{0:0} mm wide x {1:0} mm high",
+                module.WidthMm,
+                module.HeightMm);
         }
     }
 }

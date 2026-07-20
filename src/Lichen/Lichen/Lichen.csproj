@@ -35,6 +35,11 @@
 			<Link>facade-library\%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+
+		<Content Include="..\..\..\assets\facade-library\facades.json">
+			<Link>facade-library\facades.json</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 </Project>

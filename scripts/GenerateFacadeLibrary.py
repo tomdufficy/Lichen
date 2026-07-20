@@ -196,9 +196,12 @@ def extract_facade_metadata(base_name):
     if block_definition is None:
         print("WARNING: no block definition found for {}".format(base_name))
         return {
+            "name": base_name,
             "description": "",
             "widthMm": None,
-            "heightMm": None
+            "heightMm": None,
+            "preview": base_name + ".png",
+            "model": base_name + ".3dm"
         }
 
     description = block_definition.Description or ""
@@ -218,9 +221,12 @@ def extract_facade_metadata(base_name):
         height_mm = int(round((bbox.Max.Z - bbox.Min.Z) * unit_scale))
 
     return {
+        "name": base_name,
         "description": description,
         "widthMm": width_mm,
-        "heightMm": height_mm
+        "heightMm": height_mm,
+        "preview": base_name + ".png",
+        "model": base_name + ".3dm"
     }
 
 
