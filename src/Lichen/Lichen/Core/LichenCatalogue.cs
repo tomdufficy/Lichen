@@ -8,6 +8,7 @@ namespace Lichen.Core
     {
         public string Name { get; set; }
         public string FilePath { get; set; }
+        public string PreviewPath { get; set; }
     }
 
     public class LichenCatalogue
@@ -32,12 +33,24 @@ namespace Lichen.Core
                 return;
             }
 
+            var pluginFolder = Directory.GetParent(_facadesFolder)?.FullName;
+            var previewFolder = pluginFolder == null
+                ? null
+                : Path.Combine(pluginFolder, "facade-library");
+
             foreach (var file in Directory.GetFiles(_facadesFolder, "*.3dm"))
             {
+                var name = Path.GetFileNameWithoutExtension(file);
+
+                var previewPath = previewFolder == null
+                    ? null
+                    : Path.Combine(previewFolder, name + ".png");
+
                 _modules.Add(new FacadeModule
                 {
-                    Name = Path.GetFileNameWithoutExtension(file),
-                    FilePath = file
+                    Name = name,
+                    FilePath = file,
+                    PreviewPath = File.Exists(previewPath) ? previewPath : null
                 });
             }
 

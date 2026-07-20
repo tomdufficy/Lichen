@@ -1,4 +1,4 @@
-﻿using Lichen.Core;
+﻿using Lichen.UI;
 using Rhino;
 using Rhino.Commands;
 
@@ -13,7 +13,10 @@ namespace Lichen.Commands
 
         public static LichenListCommand Instance { get; private set; }
 
-        public override string EnglishName => "LichenList";
+        public override string EnglishName
+        {
+            get { return "LichenList"; }
+        }
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
@@ -25,12 +28,10 @@ namespace Lichen.Commands
                 return Result.Success;
             }
 
-            RhinoApp.WriteLine("Lichen: available facade modules:");
+            var dialog = new FacadeBrowserDialog(catalogue.Modules);
 
-            for (int i = 0; i < catalogue.Modules.Count; i++)
-            {
-                RhinoApp.WriteLine("  {0}. {1}", i + 1, catalogue.Modules[i].Name);
-            }
+            dialog.ShowModal(
+                Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc));
 
             return Result.Success;
         }

@@ -1,0 +1,226 @@
+﻿using System.Collections.Generic;
+using System.IO;
+using Eto.Drawing;
+using Eto.Forms;
+using Lichen.Core;
+
+namespace Lichen.UI
+{
+    public class FacadeBrowserDialog : Dialog
+    {
+        private readonly ImageView _selectedPreview;
+        private readonly Label _selectedName;
+        private readonly Button _applyButton;
+
+        public FacadeModule SelectedModule { get; private set; }
+
+        public bool WasApplied { get; private set; }
+
+        public FacadeBrowserDialog(
+            IReadOnlyList<FacadeModule> modules,
+            bool browseOnly = true)
+        {
+            Title = "Lichen Facade Library";
+            ClientSize = new Size(1000, 700);
+            Padding = new Padding(10);
+            Resizable = true;
+
+            WasApplied = false;
+
+            _selectedPreview = new ImageView
+            {
+                Size = new Size(300, 300)
+            };
+
+            _selectedName = new Label
+            {
+                Text = "Select a facade",
+                TextAlignment = TextAlignment.Center
+            };
+
+            _applyButton = new Button
+            {
+                Text = "Apply",
+                Enabled = false
+            };
+
+            _applyButton.Click += delegate
+            {
+                if (SelectedModule == null)
+                    return;
+
+                WasApplied = true;
+                Close();
+            };
+
+            Control facadeGrid = CreateFacadeGrid(modules);
+
+            Scrollable scrollableGrid = new Scrollable
+            {
+                Content = facadeGrid,
+                ExpandContentWidth = true,
+                Border = BorderType.None
+            };
+
+            DynamicLayout selectedPanel = new DynamicLayout
+            {
+                Padding = new Padding(10),
+                Spacing = new Size(5, 10)
+            };
+
+            selectedPanel.AddCentered(_selectedPreview);
+            selectedPanel.AddCentered(_selectedName);
+            selectedPanel.Add(null);
+
+            Button closeButton = new Button
+            {
+                Text = browseOnly ? "Close" : "Cancel"
+            };
+
+            closeButton.Click += delegate
+            {
+                WasApplied = false;
+                Close();
+            };
+
+            AbortButton = closeButton;
+
+            if (!browseOnly)
+                DefaultButton = _applyButton;
+
+            DynamicLayout mainLayout = new DynamicLayout
+            {
+                Spacing = new Size(10, 10)
+            };
+
+            mainLayout.BeginHorizontal();
+            mainLayout.Add(scrollableGrid, true, true);
+            mainLayout.Add(selectedPanel, false, true);
+            mainLayout.EndHorizontal();
+
+            mainLayout.BeginHorizontal();
+            mainLayout.Add(null, true);
+            mainLayout.Add(closeButton);
+
+            if (!browseOnly)
+                mainLayout.Add(_applyButton);
+
+            mainLayout.EndHorizontal();
+
+            Content = mainLayout;
+        }
+
+        private Control CreateFacadeGrid(
+            IReadOnlyList<FacadeModule> modules)
+        {
+            const int columns = 3;
+
+            TableLayout table = new TableLayout
+            {
+                Spacing = new Size(10, 10)
+            };
+
+            for (int index = 0;
+                 index < modules.Count;
+                 index += columns)
+            {
+                TableRow row = new TableRow();
+
+                for (int column = 0;
+                     column < columns;
+                     column++)
+                {
+                    int moduleIndex = index + column;
+
+                    if (moduleIndex < modules.Count)
+                    {
+                        row.Cells.Add(
+                            new TableCell(
+                                CreateFacadeTile(
+                                    modules[moduleIndex]),
+                                true));
+                    }
+                    else
+                    {
+                        row.Cells.Add(new TableCell());
+                    }
+                }
+
+                table.Rows.Add(row);
+            }
+
+            return table;
+        }
+
+        private Control CreateFacadeTile(FacadeModule module)
+        {
+            ImageView preview = new ImageView
+            {
+                Size = new Size(180, 180)
+            };
+
+            if (!string.IsNullOrWhiteSpace(module.PreviewPath) &&
+                File.Exists(module.PreviewPath))
+            {
+                preview.Image = new Bitmap(module.PreviewPath);
+            }
+
+            Label nameLabel = new Label
+            {
+                Text = module.Name,
+                TextAlignment = TextAlignment.Center,
+                Wrap = WrapMode.Word
+            };
+
+            DynamicLayout tileLayout = new DynamicLayout
+            {
+                Padding = new Padding(5),
+                Spacing = new Size(5, 5)
+            };
+
+            tileLayout.AddCentered(preview);
+            tileLayout.AddCentered(nameLabel);
+
+            Panel tilePanel = new Panel
+            {
+                Content = tileLayout,
+                MinimumSize = new Size(210, 230)
+            };
+
+            tilePanel.MouseDown += delegate
+            {
+                SelectModule(module);
+            };
+
+            preview.MouseDown += delegate
+            {
+                SelectModule(module);
+            };
+
+            nameLabel.MouseDown += delegate
+            {
+                SelectModule(module);
+            };
+
+            return tilePanel;
+        }
+
+        private void SelectModule(FacadeModule module)
+        {
+            SelectedModule = module;
+            _selectedName.Text = module.Name;
+            _applyButton.Enabled = true;
+
+            if (!string.IsNullOrWhiteSpace(module.PreviewPath) &&
+                File.Exists(module.PreviewPath))
+            {
+                _selectedPreview.Image =
+                    new Bitmap(module.PreviewPath);
+            }
+            else
+            {
+                _selectedPreview.Image = null;
+            }
+        }
+    }
+}

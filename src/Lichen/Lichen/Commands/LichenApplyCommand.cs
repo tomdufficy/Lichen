@@ -1,8 +1,8 @@
 ﻿using Lichen.Core;
+using Lichen.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
-using Rhino.Input;
 
 namespace Lichen.Commands
 {
@@ -23,13 +23,17 @@ namespace Lichen.Commands
 
             if (catalogue.Modules.Count == 0)
             {
-                RhinoApp.WriteLine("Lichen: no facade modules found. Use LichenList to check.");
+                RhinoApp.WriteLine(
+                    "Lichen: no facade modules found. Use LichenList to check.");
+
                 return Result.Failure;
             }
 
-            // ── 1. select volumes first ──────────────────────────────────────────
+            // 1. Select volumes first
             var getObject = new Rhino.Input.Custom.GetObject();
-            getObject.SetCommandPrompt("Select building volume(s) to apply facade to");
+            getObject.SetCommandPrompt(
+                "Select building volume(s) to apply facade to");
+
             getObject.GeometryFilter = ObjectType.Brep;
             getObject.GetMultiple(1, 0);
 
@@ -39,52 +43,84 @@ namespace Lichen.Commands
                 return Result.Cancel;
             }
 
-            // ── 2. pick facade module ────────────────────────────────────────────
-            RhinoApp.WriteLine("Lichen: available facade modules:");
-            for (int i = 0; i < catalogue.Modules.Count; i++)
-                RhinoApp.WriteLine("  {0}. {1}", i + 1, catalogue.Modules[i].Name);
+            // 2. Select facade visually
+            var dialog = new FacadeBrowserDialog(
+                catalogue.Modules,
+                browseOnly: false);
 
-            var getNumber = new Rhino.Input.Custom.GetInteger();
-            getNumber.SetCommandPrompt("Select facade module by number");
-            getNumber.SetLowerLimit(1, false);
-            getNumber.SetUpperLimit(catalogue.Modules.Count, false);
-            if (getNumber.Get() != Rhino.Input.GetResult.Number)
+            dialog.ShowModal(
+                Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc));
+
+            if (!dialog.WasApplied ||
+                dialog.SelectedModule == null)
             {
                 RhinoApp.WriteLine("Lichen: no module selected.");
                 return Result.Cancel;
             }
 
-            int moduleIndex = getNumber.Number() - 1;
-            FacadeModule selectedModule = catalogue.Modules[moduleIndex];
-            RhinoApp.WriteLine("Lichen: using module {0}", selectedModule.Name);
+            FacadeModule selectedModule =
+                dialog.SelectedModule;
 
-            // ── 3. import block and place master (only now, after confirmation) ──
-            bool isNewBlock = !BlockManager.BlockExists(doc, selectedModule.Name);
-            int blockDefIndex = BlockManager.ImportBlock(doc, selectedModule);
+            RhinoApp.WriteLine(
+                "Lichen: using module {0}",
+                selectedModule.Name);
+
+            // 3. Import block and place master
+            bool isNewBlock =
+                !BlockManager.BlockExists(
+                    doc,
+                    selectedModule.Name);
+
+            int blockDefIndex =
+                BlockManager.ImportBlock(
+                    doc,
+                    selectedModule);
 
             if (blockDefIndex < 0)
             {
-                RhinoApp.WriteLine("Lichen: failed to import block. Aborting.");
+                RhinoApp.WriteLine(
+                    "Lichen: failed to import block. Aborting.");
+
                 return Result.Failure;
             }
 
             if (isNewBlock)
-                BlockManager.PlaceMaster(doc, selectedModule, blockDefIndex);
+            {
+                BlockManager.PlaceMaster(
+                    doc,
+                    selectedModule,
+                    blockDefIndex);
+            }
 
-            // ── 4. apply to each selected volume ─────────────────────────────────
-            for (int i = 0; i < getObject.ObjectCount; i++)
+            // 4. Apply to each selected volume
+            for (int i = 0;
+                 i < getObject.ObjectCount;
+                 i++)
             {
                 var brep = getObject.Object(i).Brep();
-                if (brep == null) continue;
 
-                RhinoApp.WriteLine("Lichen: processing volume {0} of {1}",
-                    i + 1, getObject.ObjectCount);
+                if (brep == null)
+                    continue;
 
-                var wallFaces = FacadePlacer.GetWallFaces(brep);
-                RhinoApp.WriteLine("Lichen: found {0} wall face(s)", wallFaces.Count);
+                RhinoApp.WriteLine(
+                    "Lichen: processing volume {0} of {1}",
+                    i + 1,
+                    getObject.ObjectCount);
+
+                var wallFaces =
+                    FacadePlacer.GetWallFaces(brep);
+
+                RhinoApp.WriteLine(
+                    "Lichen: found {0} wall face(s)",
+                    wallFaces.Count);
 
                 foreach (var face in wallFaces)
-                    FacadePlacer.PlaceFacadesOnFace(doc, face, blockDefIndex);
+                {
+                    FacadePlacer.PlaceFacadesOnFace(
+                        doc,
+                        face,
+                        blockDefIndex);
+                }
             }
 
             RhinoApp.WriteLine("Lichen: done.");
