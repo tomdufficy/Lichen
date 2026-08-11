@@ -23,12 +23,20 @@ namespace Lichen.UI
         private readonly RadioButton _alignmentCentreRadio;
         private readonly RadioButton _alignmentRightRadio;
         private readonly DynamicLayout _alignmentLayout;
+        private readonly CheckBox _generateFloorSlabsCheckBox;
+        private readonly CheckBox _generateCeilingSlabsCheckBox;
+        private readonly NumericStepper _floorThicknessStepper;
+        private readonly NumericStepper _ceilingThicknessStepper;
 
         public FacadeModule SelectedModule { get; private set; }
         public bool WasApplied { get; private set; }
 
         public bool StretchVertically => _verticalStretchRadio.Checked;
         public bool StretchHorizontally => _horizontalStretchRadio.Checked;
+        public bool GenerateFloorSlabs => _generateFloorSlabsCheckBox.Checked == true;
+        public bool GenerateCeilingSlabs => _generateCeilingSlabsCheckBox.Checked == true;
+        public double FloorSlabThicknessMm => _floorThicknessStepper.Value;
+        public double CeilingSlabThicknessMm => _ceilingThicknessStepper.Value;
 
         public HorizontalAlignmentMode HorizontalAlignment
         {
@@ -104,6 +112,31 @@ namespace Lichen.UI
             _horizontalPreserveRadio = new RadioButton(_horizontalStretchRadio)
             {
                 Text = "Preserve module width"
+            };
+
+            _generateFloorSlabsCheckBox = new CheckBox
+            {
+                Text = "Generate floor slabs",
+                Checked = false
+            };
+
+            _generateCeilingSlabsCheckBox = new CheckBox
+            {
+                Text = "Generate ceiling slabs",
+                Checked = false
+            };
+
+            _floorThicknessStepper = CreateThicknessStepper();
+            _ceilingThicknessStepper = CreateThicknessStepper();
+
+            _generateFloorSlabsCheckBox.CheckedChanged += delegate
+            {
+                UpdateSlabEnabledState();
+            };
+
+            _generateCeilingSlabsCheckBox.CheckedChanged += delegate
+            {
+                UpdateSlabEnabledState();
             };
 
             _alignmentEvenRadio = new RadioButton
@@ -195,9 +228,24 @@ namespace Lichen.UI
                 selectedPanel.Add(_horizontalStretchRadio);
                 selectedPanel.Add(_horizontalPreserveRadio);
                 selectedPanel.Add(_alignmentLayout);
+
+                selectedPanel.Add(CreateHeadingLabel("Slabs"));
+                selectedPanel.Add(_generateFloorSlabsCheckBox);
+                selectedPanel.Add(CreateThicknessRow("Floor thickness", _floorThicknessStepper));
+                selectedPanel.Add(_generateCeilingSlabsCheckBox);
+                selectedPanel.Add(CreateThicknessRow("Ceiling thickness", _ceilingThicknessStepper));
             }
 
             selectedPanel.Add(null);
+
+            Scrollable selectedScrollable = new Scrollable
+            {
+                Content = selectedPanel,
+                ExpandContentWidth = true,
+                Border = BorderType.None,
+                Width = 350,
+                MinimumSize = new Size(350, 0)
+            };
 
             Button closeButton = new Button
             {
@@ -222,7 +270,7 @@ namespace Lichen.UI
 
             mainLayout.BeginHorizontal();
             mainLayout.Add(scrollableGrid, true, true);
-            mainLayout.Add(selectedPanel, false, true);
+            mainLayout.Add(selectedScrollable, false, true);
             mainLayout.EndHorizontal();
 
             mainLayout.BeginHorizontal();
@@ -236,6 +284,35 @@ namespace Lichen.UI
 
             Content = mainLayout;
             UpdateAlignmentEnabledState();
+            UpdateSlabEnabledState();
+        }
+
+        private static NumericStepper CreateThicknessStepper()
+        {
+            return new NumericStepper
+            {
+                Value = 500.0,
+                MinValue = 1.0,
+                MaxValue = 10000.0,
+                Increment = 50.0,
+                DecimalPlaces = 0,
+                Width = 100
+            };
+        }
+
+        private static Control CreateThicknessRow(string labelText, NumericStepper stepper)
+        {
+            return new TableLayout
+            {
+                Spacing = new Size(8, 0),
+                Rows =
+                {
+                    new TableRow(
+                        new Label { Text = labelText },
+                        stepper,
+                        new Label { Text = "mm" })
+                }
+            };
         }
 
         private static Label CreateHeadingLabel(string text)
@@ -255,6 +332,12 @@ namespace Lichen.UI
             _alignmentLeftRadio.Enabled = enabled;
             _alignmentCentreRadio.Enabled = enabled;
             _alignmentRightRadio.Enabled = enabled;
+        }
+
+        private void UpdateSlabEnabledState()
+        {
+            _floorThicknessStepper.Enabled = _generateFloorSlabsCheckBox.Checked == true;
+            _ceilingThicknessStepper.Enabled = _generateCeilingSlabsCheckBox.Checked == true;
         }
 
         private Control CreateFacadeGrid(

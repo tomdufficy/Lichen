@@ -62,6 +62,18 @@ namespace Lichen.Core
             return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
         }
 
+        public static int EnsureSlabLayer(RhinoDoc doc, bool isFloor)
+        {
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            int slabsIndex = EnsureLayer(doc, "Slabs", MineralBlue, lichenIndex);
+
+            return EnsureLayer(
+                doc,
+                isFloor ? "Floor" : "Ceiling",
+                isFloor ? MineralBlue : GoldenLichen,
+                slabsIndex);
+        }
+
         // ─── block existence check ────────────────────────────────────────────────
 
         public static bool BlockExists(RhinoDoc doc, string moduleName)

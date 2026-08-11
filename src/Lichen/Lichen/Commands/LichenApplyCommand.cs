@@ -52,6 +52,14 @@ namespace Lichen.Commands
                 HorizontalAlignment = dialog.HorizontalAlignment
             };
 
+            var slabOptions = new SlabGenerationOptions
+            {
+                GenerateFloorSlabs = dialog.GenerateFloorSlabs,
+                GenerateCeilingSlabs = dialog.GenerateCeilingSlabs,
+                FloorThicknessMm = dialog.FloorSlabThicknessMm,
+                CeilingThicknessMm = dialog.CeilingSlabThicknessMm
+            };
+
             RhinoApp.WriteLine(
                 "Lichen: using module {0}",
                 selectedModule.Name);
@@ -125,6 +133,11 @@ namespace Lichen.Commands
                         blockDefIndex,
                         placementOptions);
                 }
+
+                SlabGenerator.GenerateForVolume(
+                    doc,
+                    brep,
+                    slabOptions);
             }
 
             RhinoApp.WriteLine("Lichen: done.");
