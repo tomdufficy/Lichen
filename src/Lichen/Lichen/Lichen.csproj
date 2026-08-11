@@ -15,7 +15,7 @@
 
 	<PropertyGroup>
 		<!-- Specifies information for Assembly and Yak -->
-		<Version>0.2.1-beta.1</Version>
+		<Version>0.2.1-beta.2</Version>
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 		<Title>Lichen</Title>
 		<Company>Tom Dufficy</Company>
