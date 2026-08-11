@@ -21,7 +21,8 @@ namespace Lichen.Core
         public static void GenerateForVolume(
             RhinoDoc doc,
             Brep volume,
-            SlabGenerationOptions options)
+            SlabGenerationOptions options,
+            double facadeDepth)
         {
             if (doc == null || volume == null || options == null)
                 return;
@@ -36,13 +37,13 @@ namespace Lichen.Core
             if (options.GenerateFloorSlabs)
             {
                 double thickness = options.FloorThicknessMm * mmToModel;
-                CreateSlabsAtExtreme(doc, volume, thickness, isFloor: true);
+                CreateSlabsAtExtreme(doc, volume, thickness, facadeDepth, isFloor: true);
             }
 
             if (options.GenerateCeilingSlabs)
             {
                 double thickness = options.CeilingThicknessMm * mmToModel;
-                CreateSlabsAtExtreme(doc, volume, thickness, isFloor: false);
+                CreateSlabsAtExtreme(doc, volume, thickness, facadeDepth, isFloor: false);
             }
         }
 
@@ -50,6 +51,7 @@ namespace Lichen.Core
             RhinoDoc doc,
             Brep volume,
             double thickness,
+            double facadeDepth,
             bool isFloor)
         {
             if (thickness <= 0.0)
@@ -75,17 +77,27 @@ namespace Lichen.Core
 
             foreach (BrepFace face in faces)
             {
-                Vector3d faceNormal = GetOrientedNormal(face);
-                Vector3d targetDirection = isFloor
-                    ? -Vector3d.ZAxis
-                    : Vector3d.ZAxis;
+                Brep baseSurface = face.DuplicateFace(false);
+                if (baseSurface == null || baseSurface.Faces.Count == 0)
+                    continue;
 
-                double directionSign = Math.Sign(faceNormal * targetDirection);
+                // Move the slab base down by the facade module depth first so
+                // the slab does not overlap the facade modules.
+                if (facadeDepth > 0.0)
+                {
+                    baseSurface.Transform(
+                        Transform.Translation(0.0, 0.0, -facadeDepth));
+                }
+
+                BrepFace baseFace = baseSurface.Faces[0];
+                Vector3d faceNormal = GetOrientedNormal(baseFace);
+                double directionSign = Math.Sign(faceNormal * -Vector3d.ZAxis);
                 if (directionSign == 0.0)
                     continue;
 
+                // Floors and ceilings both generate downward.
                 Brep slab = Brep.CreateFromOffsetFace(
-                    face,
+                    baseFace,
                     thickness * directionSign,
                     doc.ModelAbsoluteTolerance,
                     bothSides: false,

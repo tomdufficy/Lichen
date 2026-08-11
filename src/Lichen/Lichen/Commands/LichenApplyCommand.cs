@@ -3,6 +3,8 @@ using Lichen.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
+using Rhino.Geometry;
+using System;
 
 namespace Lichen.Commands
 {
@@ -96,6 +98,19 @@ namespace Lichen.Commands
                 return Result.Failure;
             }
 
+
+            double facadeDepth = 0.0;
+            var blockDefinition = doc.InstanceDefinitions[blockDefIndex];
+            if (blockDefinition != null)
+            {
+                BoundingBox moduleBounds = BoundingBox.Empty;
+                foreach (var obj in blockDefinition.GetObjects())
+                    moduleBounds.Union(obj.Geometry.GetBoundingBox(true));
+
+                if (moduleBounds.IsValid)
+                    facadeDepth = Math.Abs(moduleBounds.Max.Y - moduleBounds.Min.Y);
+            }
+
             if (isNewBlock)
             {
                 BlockManager.PlaceMaster(
@@ -137,7 +152,8 @@ namespace Lichen.Commands
                 SlabGenerator.GenerateForVolume(
                     doc,
                     brep,
-                    slabOptions);
+                    slabOptions,
+                    facadeDepth);
             }
 
             RhinoApp.WriteLine("Lichen: done.");
