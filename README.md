@@ -541,7 +541,6 @@ Each library module has an authored width and height used by `LichenApply` when 
     </td>
   </tr>
 </table>
-
 <!-- FACADE_LIBRARY_END -->
 
 ## Roadmap
