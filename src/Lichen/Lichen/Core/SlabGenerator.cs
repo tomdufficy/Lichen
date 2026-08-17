@@ -22,7 +22,7 @@ namespace Lichen.Core
             RhinoDoc doc,
             Brep volume,
             SlabGenerationOptions options,
-            double facadeDepth)
+            double inwardFacadeDepth)
         {
             if (doc == null || volume == null || options == null)
                 return;
@@ -40,7 +40,7 @@ namespace Lichen.Core
                     doc,
                     volume,
                     thickness,
-                    facadeDepth,
+                    inwardFacadeDepth,
                     isFloor: true);
             }
 
@@ -54,7 +54,7 @@ namespace Lichen.Core
                     doc,
                     volume,
                     thickness,
-                    facadeDepth,
+                    inwardFacadeDepth,
                     isFloor: false);
             }
         }
@@ -63,7 +63,7 @@ namespace Lichen.Core
             RhinoDoc doc,
             Brep volume,
             double thickness,
-            double facadeDepth,
+            double inwardFacadeDepth,
             bool isFloor)
         {
             if (thickness <= 0.0)
@@ -89,48 +89,150 @@ namespace Lichen.Core
 
             foreach (BrepFace face in faces)
             {
-                Brep baseSurface = face.DuplicateFace(false);
-                if (baseSurface == null || baseSurface.Faces.Count == 0)
-                    continue;
+                List<Brep> slabBases = CreateInsetPlanarRegions(
+                    face,
+                    inwardFacadeDepth,
+                    doc.ModelAbsoluteTolerance);
 
-                // Move the slab base down by the facade module depth first so
-                // the slab does not overlap the facade modules.
-                if (facadeDepth > 0.0)
-                {
-                    baseSurface.Transform(
-                        Transform.Translation(0.0, 0.0, -facadeDepth));
-                }
-
-                BrepFace baseFace = baseSurface.Faces[0];
-                Vector3d faceNormal = GetOrientedNormal(baseFace);
-                double directionSign = Math.Sign(faceNormal * -Vector3d.ZAxis);
-                if (directionSign == 0.0)
-                    continue;
-
-                // Floors and ceilings both generate downward.
-                Brep slab = Brep.CreateFromOffsetFace(
-                    baseFace,
-                    thickness * directionSign,
-                    doc.ModelAbsoluteTolerance,
-                    bothSides: false,
-                    createSolid: true);
-
-                if (slab == null)
+                if (slabBases.Count == 0)
                 {
                     RhinoApp.WriteLine(
-                        "Lichen: failed to create {0} slab from one face.",
+                        "Lichen: failed to create inset {0} slab boundary.",
                         isFloor ? "floor" : "ceiling");
                     continue;
                 }
 
-                doc.Objects.AddBrep(slab, attributes);
-                created++;
+                foreach (Brep slabBase in slabBases)
+                {
+                    if (slabBase == null || slabBase.Faces.Count == 0)
+                        continue;
+
+                    BrepFace baseFace = slabBase.Faces[0];
+                    Vector3d faceNormal = GetOrientedNormal(baseFace);
+                    double directionSign = Math.Sign(faceNormal * -Vector3d.ZAxis);
+                    if (directionSign == 0.0)
+                        continue;
+
+                    // Floors and ceilings both extrude downward from their
+                    // original horizontal face elevation.
+                    Brep slab = Brep.CreateFromOffsetFace(
+                        baseFace,
+                        thickness * directionSign,
+                        doc.ModelAbsoluteTolerance,
+                        bothSides: false,
+                        createSolid: true);
+
+                    if (slab == null)
+                    {
+                        RhinoApp.WriteLine(
+                            "Lichen: failed to create {0} slab from one inset region.",
+                            isFloor ? "floor" : "ceiling");
+                        continue;
+                    }
+
+                    doc.Objects.AddBrep(slab, attributes);
+                    created++;
+                }
             }
 
             RhinoApp.WriteLine(
                 "Lichen: created {0} {1} slab object(s).",
                 created,
                 isFloor ? "floor" : "ceiling");
+        }
+
+        private static List<Brep> CreateInsetPlanarRegions(
+            BrepFace face,
+            double inwardFacadeDepth,
+            double tolerance)
+        {
+            var result = new List<Brep>();
+
+            if (!face.TryGetPlane(out Plane plane, tolerance))
+            {
+                RhinoApp.WriteLine(
+                    "Lichen: slab face is not planar enough to inset its boundary.");
+                return result;
+            }
+
+            // Use a consistent +Z plane so outer/inner loop orientation can be
+            // normalised reliably for both top and bottom faces.
+            if (plane.ZAxis * Vector3d.ZAxis < 0.0)
+                plane.Flip();
+
+            var boundaries = new List<Curve>();
+
+            foreach (BrepLoop loop in face.Loops)
+            {
+                Curve boundary = loop.To3dCurve();
+                if (boundary == null || !boundary.IsClosed)
+                    continue;
+
+                Curve working = boundary.DuplicateCurve();
+                if (working == null)
+                    continue;
+
+                // With a +Z plane, make the slab region lie on the left side
+                // of every loop: outer loops CCW, inner loops CW. A positive
+                // offset then erodes the slab region from every trimmed edge.
+                CurveOrientation orientation = working.ClosedCurveOrientation(plane);
+
+                if (loop.LoopType == BrepLoopType.Outer &&
+                    orientation == CurveOrientation.Clockwise)
+                {
+                    working.Reverse();
+                }
+                else if (loop.LoopType == BrepLoopType.Inner &&
+                         orientation == CurveOrientation.CounterClockwise)
+                {
+                    working.Reverse();
+                }
+
+                if (inwardFacadeDepth <= tolerance)
+                {
+                    boundaries.Add(working);
+                    continue;
+                }
+
+                Curve[] offsets = working.Offset(
+                    plane,
+                    -inwardFacadeDepth,
+                    tolerance,
+                    CurveOffsetCornerStyle.Sharp);
+
+                if (offsets == null || offsets.Length == 0)
+                {
+                    RhinoApp.WriteLine(
+                        "Lichen: a slab boundary could not be inset by {0:G6} model units.",
+                        inwardFacadeDepth);
+                    continue;
+                }
+
+                Curve[] joinedOffsets = Curve.JoinCurves(offsets, tolerance);
+                if (joinedOffsets == null || joinedOffsets.Length == 0)
+                    joinedOffsets = offsets;
+
+                foreach (Curve offset in joinedOffsets)
+                {
+                    if (offset != null && offset.IsClosed)
+                        boundaries.Add(offset);
+                }
+            }
+
+            if (boundaries.Count == 0)
+                return result;
+
+            Brep[] planarRegions = Brep.CreatePlanarBreps(boundaries, tolerance);
+            if (planarRegions == null)
+                return result;
+
+            foreach (Brep region in planarRegions)
+            {
+                if (region != null && region.Faces.Count > 0)
+                    result.Add(region);
+            }
+
+            return result;
         }
 
         private static List<BrepFace> GetExtremeHorizontalFaces(

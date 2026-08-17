@@ -99,7 +99,10 @@ namespace Lichen.Commands
             }
 
 
-            double facadeDepth = 0.0;
+            // Facade modules are authored with Y = 0 on the facade line.
+            // FacadePlacer maps local +Y outward, so only geometry extending
+            // into negative local Y occupies the building interior.
+            double inwardFacadeDepth = 0.0;
             var blockDefinition = doc.InstanceDefinitions[blockDefIndex];
             if (blockDefinition != null)
             {
@@ -107,9 +110,13 @@ namespace Lichen.Commands
                 foreach (var obj in blockDefinition.GetObjects())
                     moduleBounds.Union(obj.Geometry.GetBoundingBox(true));
 
-                if (moduleBounds.IsValid)
-                    facadeDepth = Math.Abs(moduleBounds.Max.Y - moduleBounds.Min.Y);
+                if (moduleBounds.IsValid && moduleBounds.Min.Y < 0.0)
+                    inwardFacadeDepth = -moduleBounds.Min.Y;
             }
+
+            RhinoApp.WriteLine(
+                "Lichen: facade inward depth = {0:G6} model units",
+                inwardFacadeDepth);
 
             if (isNewBlock)
             {
@@ -153,7 +160,7 @@ namespace Lichen.Commands
                     doc,
                     brep,
                     slabOptions,
-                    facadeDepth);
+                    inwardFacadeDepth);
             }
 
             RhinoApp.WriteLine("Lichen: done.");
