@@ -33,13 +33,21 @@ namespace Lichen.UI
             _doc = doc;
 
             Title = "Lichen Custom Facade";
-            ClientSize = new Size(520, 700);
+            ClientSize = new Size(840, 720);
+            MinimumSize = new Size(700, 560);
             Padding = new Padding(16);
-            Resizable = false;
+            Resizable = true;
             WasApplied = false;
 
-            _nameTextBox = new TextBox { PlaceholderText = "MyFacade" };
-            _blockNameLabel = new Label { Text = "Lichen_Custom_" };
+            _nameTextBox = new TextBox
+            {
+                PlaceholderText = "MyFacade"
+            };
+            _blockNameLabel = new Label
+            {
+                Text = "Lichen_Custom_",
+                Wrap = WrapMode.None
+            };
             _validationLabel = new Label
             {
                 Text = string.Empty,
@@ -142,8 +150,22 @@ namespace Lichen.UI
             };
 
             layout.Add(CreateHeading("Facade"));
-            layout.AddRow(new Label { Text = "Name", Width = 135 }, _nameTextBox);
-            layout.AddRow(new Label { Text = "Block name", Width = 135 }, _blockNameLabel);
+
+            var facadeFields = new TableLayout
+            {
+                Spacing = new Size(12, 8),
+                Rows =
+                {
+                    new TableRow(
+                        new TableCell(new Label { Text = "Name" }, true),
+                        new TableCell(_nameTextBox, true)),
+                    new TableRow(
+                        new TableCell(new Label { Text = "Block name" }, true),
+                        new TableCell(_blockNameLabel, true))
+                }
+            };
+
+            layout.Add(facadeFields);
             layout.Add(_validationLabel);
 
             layout.Add(CreateHeading("Dimensions"));
@@ -154,9 +176,21 @@ namespace Lichen.UI
 
             layout.Add(CreateHeading("Horizontal placement"));
             layout.Add(_centeredRadio);
-            layout.Add(Indented(_halfEdgeRadio));
-            layout.Add(Indented(_equalEdgeRadio));
+
+            var centeredOptions = new DynamicLayout
+            {
+                Padding = new Padding(28, 0, 0, 0),
+                Spacing = new Size(8, 6)
+            };
+            centeredOptions.Add(_halfEdgeRadio);
+            centeredOptions.Add(_equalEdgeRadio);
+            layout.Add(centeredOptions);
+
+            // Separate the two primary placement modes visually.
+            layout.Add(new Panel { Height = 10 });
             layout.Add(_endToEndRadio);
+
+            layout.Add(new Panel { Height = 6 });
             layout.Add(_generateGapFillersCheckBox);
             layout.Add(Indented(_includeEdgeFillersCheckBox));
 
@@ -176,7 +210,19 @@ namespace Lichen.UI
             layout.Add(cancelButton);
             layout.EndHorizontal();
 
-            Content = layout;
+            // Keep the form at a stable working width. If the user resizes the
+            // dialog narrower than the form, Eto shows a horizontal scrollbar
+            // instead of allowing text controls to drive the window width.
+            layout.Width = 780;
+
+            Content = new Scrollable
+            {
+                Content = layout,
+                ExpandContentWidth = false,
+                ExpandContentHeight = false,
+                Border = BorderType.None
+            };
+
             UpdateNamePreview();
             UpdateEnabledState();
         }

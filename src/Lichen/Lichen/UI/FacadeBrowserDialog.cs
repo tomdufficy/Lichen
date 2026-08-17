@@ -179,11 +179,29 @@ namespace Lichen.UI
             };
             _fixedWidthLayout.Add(CreateHeadingLabel("Horizontal Placement"));
             _fixedWidthLayout.Add(_placementCenteredRadio);
-            _fixedWidthLayout.Add(_edgeHalfRadio);
-            _fixedWidthLayout.Add(_edgeEqualRadio);
+
+            var centeredOptions = new DynamicLayout
+            {
+                Padding = new Padding(28, 0, 0, 0),
+                Spacing = new Size(5, 4)
+            };
+            centeredOptions.Add(_edgeHalfRadio);
+            centeredOptions.Add(_edgeEqualRadio);
+            _fixedWidthLayout.Add(centeredOptions);
+
+            // Separate the two primary placement modes visually.
+            _fixedWidthLayout.Add(new Panel { Height = 10 });
             _fixedWidthLayout.Add(_placementEndToEndRadio);
+
+            _fixedWidthLayout.Add(new Panel { Height = 6 });
             _fixedWidthLayout.Add(_generateGapFillersCheckBox);
-            _fixedWidthLayout.Add(_includeEdgeFillersCheckBox);
+
+            var gapOptions = new DynamicLayout
+            {
+                Padding = new Padding(28, 0, 0, 0)
+            };
+            gapOptions.Add(_includeEdgeFillersCheckBox);
+            _fixedWidthLayout.Add(gapOptions);
 
             _horizontalStretchRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
             _horizontalPreserveRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
