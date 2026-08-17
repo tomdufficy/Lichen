@@ -11,7 +11,7 @@ namespace Lichen.Core
     {
         private const double BoxSizeMm = 10000.0;
         private const double BoxStartYMm = -25000.0;
-        private const double MasterTextHeightMm = 500.0;
+        private const double MasterTextHeightMm = 250.0;
         private const double AdminTextHeightMm = 200.0;
         private const double LabelOffsetMm = 500.0;
         private const double LabelMarginMm = 200.0;
@@ -65,16 +65,31 @@ namespace Lichen.Core
             return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
         }
 
+        public static int EnsureFacadeHelplinesLayer(RhinoDoc doc)
+        {
+            return EnsureLayer(doc, "Helplines", AdminPink, EnsureFacadesLayer(doc));
+        }
+
         public static int EnsureCornersLayer(RhinoDoc doc)
         {
             int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
             return EnsureLayer(doc, "Corners", GoldenLichen, lichenIndex);
         }
 
+        public static int EnsureCornerHelplinesLayer(RhinoDoc doc)
+        {
+            return EnsureLayer(doc, "Helplines", AdminPink, EnsureCornersLayer(doc));
+        }
+
         public static int EnsureGapsLayer(RhinoDoc doc)
         {
             int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
             return EnsureLayer(doc, "Gaps", MineralBlue, lichenIndex);
+        }
+
+        public static int EnsureGapHelplinesLayer(RhinoDoc doc)
+        {
+            return EnsureLayer(doc, "Helplines", AdminPink, EnsureGapsLayer(doc));
         }
 
         public static int EnsureSlabLayer(RhinoDoc doc, bool isFloor)
@@ -251,7 +266,7 @@ namespace Lichen.Core
             double depthInside = UnitConverter.MillimetersToModel(doc, depthInsideMm);
             double depthOutside = UnitConverter.MillimetersToModel(doc, depthOutsideMm);
 
-            int layerIndex = EnsureFacadesLayer(doc);
+            int layerIndex = EnsureFacadeHelplinesLayer(doc);
             var geometries = CreateWireframeBox(
                 width,
                 -depthInside,
@@ -259,7 +274,7 @@ namespace Lichen.Core
                 height);
             var attributes = new List<ObjectAttributes>();
             foreach (var geometry in geometries)
-                attributes.Add(new ObjectAttributes { LayerIndex = layerIndex });
+                attributes.Add(CreatePlaceholderAttributes(layerIndex));
 
             string description = FormatCustomFacadeDescription(
                 widthMm,
@@ -577,13 +592,13 @@ namespace Lichen.Core
 
             var bottom = new[] { corner, p1, q1, outerCorner, q2, p2 };
             var geometries = new List<GeometryBase>();
-            int cornersLayerIndex = EnsureCornersLayer(doc);
+            int cornersLayerIndex = EnsureCornerHelplinesLayer(doc);
             var attributes = new List<ObjectAttributes>();
 
             void AddSegment(Point3d a, Point3d b)
             {
                 geometries.Add(new LineCurve(a, b));
-                attributes.Add(new ObjectAttributes { LayerIndex = cornersLayerIndex });
+                attributes.Add(CreatePlaceholderAttributes(cornersLayerIndex));
             }
 
             for (int i = 0; i < bottom.Length; i++)
@@ -790,10 +805,10 @@ namespace Lichen.Core
                 -depthInside,
                 depthOutside,
                 height);
-            int gapsLayerIndex = EnsureGapsLayer(doc);
+            int gapsLayerIndex = EnsureGapHelplinesLayer(doc);
             var attributes = new List<ObjectAttributes>();
             foreach (var geometry in geometries)
-                attributes.Add(new ObjectAttributes { LayerIndex = gapsLayerIndex });
+                attributes.Add(CreatePlaceholderAttributes(gapsLayerIndex));
 
             int definitionIndex = doc.InstanceDefinitions.Add(
                 blockName,
@@ -820,6 +835,15 @@ namespace Lichen.Core
                 facadeBlockDefIndex,
                 gapBlockDefIndex,
                 "gap");
+        }
+
+        private static ObjectAttributes CreatePlaceholderAttributes(int layerIndex)
+        {
+            return new ObjectAttributes
+            {
+                LayerIndex = layerIndex,
+                ColorSource = ObjectColorSource.ColorFromLayer
+            };
         }
 
         private static List<GeometryBase> CreateWireframeBox(
