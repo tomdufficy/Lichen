@@ -6,7 +6,7 @@
 
 Modular facade generation tools for Rhino 8.
 
-Lichen automatically applies modular facade systems to simple building massing models, making it easy to explore architectural facade concepts.
+Lichen automatically applies modular facade systems to simple building massing models with planar vertical facade faces, making it easy to explore architectural facade concepts.
 
 ## Demo
 
@@ -25,7 +25,15 @@ Lichen automatically applies modular facade systems to simple building massing m
 
 ### LichenApply
 
-Applies a selected facade module to one or more building massing models.
+Applies a selected facade module to the planar vertical facade faces of one or more building massing models.
+
+#### Input geometry
+
+Lichen is designed for simple building massing Breps with planar vertical facade faces.
+
+- Facade faces must be planar and vertical.
+- Curved facade faces are not currently supported.
+- Sloped facade faces are not currently supported.
 
 ### LichenList
 

@@ -71,7 +71,7 @@ namespace Lichen.Commands
             var getObject = new Rhino.Input.Custom.GetObject();
 
             getObject.SetCommandPrompt(
-                "Select building volume(s) to apply facade to");
+                "Select building volume(s) with planar vertical facade faces");
 
             getObject.GeometryFilter = ObjectType.Brep;
             getObject.GetMultiple(1, 0);
@@ -142,11 +142,31 @@ namespace Lichen.Commands
                     i + 1,
                     getObject.ObjectCount);
 
+                if (FacadePlacer.HasUnsupportedCurvedFacadeFaces(
+                    brep,
+                    doc.ModelAbsoluteTolerance))
+                {
+                    RhinoApp.WriteLine(
+                        "Lichen: volume skipped. Curved facade faces are not supported; facade faces must be planar and vertical.");
+
+                    continue;
+                }
+
                 var wallFaces =
-                    FacadePlacer.GetWallFaces(brep);
+                    FacadePlacer.GetWallFaces(
+                        brep,
+                        doc.ModelAbsoluteTolerance);
+
+                if (wallFaces.Count == 0)
+                {
+                    RhinoApp.WriteLine(
+                        "Lichen: volume skipped. No planar vertical facade faces were found.");
+
+                    continue;
+                }
 
                 RhinoApp.WriteLine(
-                    "Lichen: found {0} wall face(s)",
+                    "Lichen: found {0} planar vertical facade face(s)",
                     wallFaces.Count);
 
                 var placedSpansByFace =

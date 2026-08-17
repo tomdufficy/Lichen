@@ -3,8 +3,8 @@ version: $version
 authors:
 - Tom Dufficy
 description: >
-  Lichen tiles facade modules across building massing volumes.
-  Select a brep, pick a module from the catalogue, and Lichen
-  handles the placement across every vertical face.
+  Lichen tiles facade modules across simple building massing volumes.
+  Select a Brep, pick a module from the catalogue, and Lichen
+  handles placement across its planar vertical facade faces.
 url: https://github.com/tomdufficy/Lichen
 icon: lichen-icon-512.png

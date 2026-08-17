@@ -35,25 +35,82 @@ namespace Lichen.Core
 
     public class FacadePlacer
     {
-        private const double VerticalAngleToleranceDegrees = 15.0;
+        private const double VerticalAngleToleranceDegrees = 1.0;
 
-        public static List<BrepFace> GetWallFaces(Brep volume)
+        public static bool HasUnsupportedCurvedFacadeFaces(
+            Brep volume,
+            double modelTolerance)
+        {
+            foreach (BrepFace face in volume.Faces)
+            {
+                Vector3d normal =
+                    face.NormalAt(
+                        face.Domain(0).Mid,
+                        face.Domain(1).Mid);
+
+                if (!normal.Unitize())
+                    continue;
+
+                double angleFromVertical =
+                    Vector3d.VectorAngle(
+                        normal,
+                        Vector3d.ZAxis) *
+                    (180.0 / Math.PI);
+
+                bool isApproximatelyVertical =
+                    angleFromVertical >= VerticalAngleToleranceDegrees &&
+                    angleFromVertical <= 180.0 - VerticalAngleToleranceDegrees;
+
+                if (isApproximatelyVertical &&
+                    !face.IsPlanar(modelTolerance))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool IsPlanarVerticalFace(
+            BrepFace face,
+            double modelTolerance)
+        {
+            if (!face.IsPlanar(modelTolerance))
+                return false;
+
+            Vector3d normal =
+                face.NormalAt(
+                    face.Domain(0).Mid,
+                    face.Domain(1).Mid);
+
+            if (!normal.Unitize())
+                return false;
+
+            double angleFromVertical =
+                Vector3d.VectorAngle(
+                    normal,
+                    Vector3d.ZAxis) *
+                (180.0 / Math.PI);
+
+            return Math.Abs(
+                angleFromVertical - 90.0) <=
+                VerticalAngleToleranceDegrees;
+        }
+
+        public static List<BrepFace> GetWallFaces(
+            Brep volume,
+            double modelTolerance)
         {
             var wallFaces = new List<BrepFace>();
 
             foreach (BrepFace face in volume.Faces)
             {
-                Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
-                normal.Unitize();
-
-                double angleFromVertical = Vector3d.VectorAngle(normal, Vector3d.ZAxis) * (180.0 / Math.PI);
-
-                if (angleFromVertical < VerticalAngleToleranceDegrees || angleFromVertical > 180.0 - VerticalAngleToleranceDegrees)
+                if (IsPlanarVerticalFace(
+                    face,
+                    modelTolerance))
                 {
-                    continue;
+                    wallFaces.Add(face);
                 }
-
-                wallFaces.Add(face);
             }
 
             return wallFaces;
