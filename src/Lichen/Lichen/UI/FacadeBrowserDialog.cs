@@ -25,6 +25,7 @@ namespace Lichen.UI
         private readonly DynamicLayout _alignmentLayout;
         private readonly CheckBox _generateFloorSlabsCheckBox;
         private readonly CheckBox _generateCeilingSlabsCheckBox;
+        private readonly CheckBox _generateCornerPlaceholdersCheckBox;
         private readonly NumericStepper _floorThicknessStepper;
         private readonly NumericStepper _ceilingThicknessStepper;
 
@@ -35,6 +36,7 @@ namespace Lichen.UI
         public bool StretchHorizontally => _horizontalStretchRadio.Checked;
         public bool GenerateFloorSlabs => _generateFloorSlabsCheckBox.Checked == true;
         public bool GenerateCeilingSlabs => _generateCeilingSlabsCheckBox.Checked == true;
+        public bool GenerateCornerPlaceholders => _generateCornerPlaceholdersCheckBox.Checked == true;
         public double FloorSlabThicknessMm => _floorThicknessStepper.Value;
         public double CeilingSlabThicknessMm => _ceilingThicknessStepper.Value;
 
@@ -123,6 +125,12 @@ namespace Lichen.UI
             _generateCeilingSlabsCheckBox = new CheckBox
             {
                 Text = "Generate ceiling slabs",
+                Checked = false
+            };
+
+            _generateCornerPlaceholdersCheckBox = new CheckBox
+            {
+                Text = "Generate corner placeholders",
                 Checked = false
             };
 
@@ -229,6 +237,9 @@ namespace Lichen.UI
                 selectedPanel.Add(_horizontalStretchRadio);
                 selectedPanel.Add(_horizontalPreserveRadio);
                 selectedPanel.Add(_alignmentLayout);
+
+                selectedPanel.Add(CreateHeadingLabel("Corners"));
+                selectedPanel.Add(_generateCornerPlaceholdersCheckBox);
 
                 selectedPanel.Add(CreateHeadingLabel("Slabs"));
                 selectedPanel.Add(_generateFloorSlabsCheckBox);

@@ -54,6 +54,8 @@ namespace Lichen.Commands
                 HorizontalAlignment = dialog.HorizontalAlignment
             };
 
+            bool generateCornerPlaceholders = dialog.GenerateCornerPlaceholders;
+
             var slabOptions = new SlabGenerationOptions
             {
                 GenerateFloorSlabs = dialog.GenerateFloorSlabs,
@@ -147,13 +149,32 @@ namespace Lichen.Commands
                     "Lichen: found {0} wall face(s)",
                     wallFaces.Count);
 
+                var placedSpansByFace =
+                    new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<FacadeVerticalSpan>>();
+
                 foreach (var face in wallFaces)
                 {
-                    FacadePlacer.PlaceFacadesOnFace(
+                    var verticalSpans = FacadePlacer.PlaceFacadesOnFace(
                         doc,
                         face,
                         blockDefIndex,
                         placementOptions);
+
+                    placedSpansByFace[face.FaceIndex] = verticalSpans;
+                }
+
+                if (generateCornerPlaceholders)
+                {
+                    int cornerCount = CornerGenerator.GenerateForVolume(
+                        doc,
+                        brep,
+                        selectedModule,
+                        blockDefIndex,
+                        placedSpansByFace);
+
+                    RhinoApp.WriteLine(
+                        "Lichen: placed {0} corner placeholder(s)",
+                        cornerCount);
                 }
 
                 SlabGenerator.GenerateForVolume(

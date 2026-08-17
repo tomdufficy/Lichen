@@ -65,6 +65,12 @@ namespace Lichen.Core
             return EnsureLayer(doc, "Facades", LichenGreen, lichenIndex);
         }
 
+        public static int EnsureCornersLayer(RhinoDoc doc)
+        {
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            return EnsureLayer(doc, "Corners", GoldenLichen, lichenIndex);
+        }
+
         public static int EnsureSlabLayer(RhinoDoc doc, bool isFloor)
         {
             int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
@@ -233,7 +239,7 @@ namespace Lichen.Core
             double labelOffset = UnitConverter.MillimetersToModel(doc, LabelOffsetMm);
             double labelMargin = UnitConverter.MillimetersToModel(doc, LabelMarginMm);
 
-            int masterCount = CountExistingMasters(doc, mastersLayerIndex);
+            int masterCount = CountExistingFacadeMasters(doc, mastersLayerIndex);
 
             double boxMinX = 0.0;
             double boxMaxX = boxSize;
@@ -320,15 +326,274 @@ namespace Lichen.Core
                 module.Name);
         }
 
+        // ─── corner placeholder blocks ─────────────────────────────────────────────
+
+        public static int GetOrCreateCornerPlaceholderDefinition(
+            RhinoDoc doc,
+            FacadeModule module,
+            double angleDegrees,
+            bool isConcave,
+            double height,
+            double legLengthMm,
+            double offsetMm)
+        {
+            double roundedAngle = Math.Round(angleDegrees / 0.1) * 0.1;
+            double heightMm = height / UnitConverter.MillimetersToModel(doc, 1.0);
+            double roundedHeightMm = Math.Round(heightMm);
+
+            string angleText = Math.Abs(roundedAngle - Math.Round(roundedAngle)) < 1e-9
+                ? Math.Round(roundedAngle).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                : roundedAngle.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+
+            string heightText = roundedHeightMm.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+            string blockName = string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Lichen::CornerPlaceholder::{0}::{1}_{2}_H{3}",
+                module.Name,
+                isConcave ? "Concave" : "Convex",
+                angleText,
+                heightText);
+
+            var existing = doc.InstanceDefinitions.Find(blockName);
+            if (existing != null)
+                return existing.Index;
+
+            double legLength = UnitConverter.MillimetersToModel(doc, legLengthMm);
+            double offset = UnitConverter.MillimetersToModel(doc, offsetMm);
+            double theta = roundedAngle * Math.PI / 180.0;
+
+            Vector3d d1 = Vector3d.XAxis;
+            Vector3d d2 = new Vector3d(Math.Cos(theta), Math.Sin(theta), 0.0);
+
+            Vector3d n1;
+            Vector3d n2;
+            if (isConcave)
+            {
+                n1 = new Vector3d(0.0, 1.0, 0.0);
+                n2 = new Vector3d(Math.Sin(theta), -Math.Cos(theta), 0.0);
+            }
+            else
+            {
+                n1 = new Vector3d(0.0, -1.0, 0.0);
+                n2 = new Vector3d(-Math.Sin(theta), Math.Cos(theta), 0.0);
+            }
+
+            Point3d corner = Point3d.Origin;
+            Point3d p1 = corner + d1 * legLength;
+            Point3d p2 = corner + d2 * legLength;
+            Point3d q1 = p1 + n1 * offset;
+            Point3d q2 = p2 + n2 * offset;
+
+            if (!TryIntersectPlanLines(q1, d1, q2, d2, out Point3d outerCorner))
+            {
+                RhinoApp.WriteLine("Lichen: could not construct corner placeholder for {0}", blockName);
+                return -1;
+            }
+
+            var bottom = new[] { corner, p1, q1, outerCorner, q2, p2 };
+            var geometries = new List<GeometryBase>();
+            int cornersLayerIndex = EnsureCornersLayer(doc);
+            var attributes = new List<ObjectAttributes>();
+
+            void AddSegment(Point3d a, Point3d b)
+            {
+                geometries.Add(new LineCurve(a, b));
+                attributes.Add(new ObjectAttributes { LayerIndex = cornersLayerIndex });
+            }
+
+            for (int i = 0; i < bottom.Length; i++)
+            {
+                int next = (i + 1) % bottom.Length;
+                AddSegment(bottom[i], bottom[next]);
+            }
+
+            var top = new Point3d[bottom.Length];
+            for (int i = 0; i < bottom.Length; i++)
+            {
+                top[i] = bottom[i] + Vector3d.ZAxis * height;
+            }
+
+            for (int i = 0; i < top.Length; i++)
+            {
+                int next = (i + 1) % top.Length;
+                AddSegment(top[i], top[next]);
+                AddSegment(bottom[i], top[i]);
+            }
+
+            int definitionIndex = doc.InstanceDefinitions.Add(
+                blockName,
+                module.Name + " corner placeholder",
+                Point3d.Origin,
+                geometries,
+                attributes);
+
+            if (definitionIndex >= 0)
+            {
+                RhinoApp.WriteLine("Lichen: created corner placeholder definition {0}", blockName);
+            }
+
+            return definitionIndex;
+        }
+
+        public static void EnsureCornerMaster(
+            RhinoDoc doc,
+            FacadeModule module,
+            int facadeBlockDefIndex,
+            int cornerBlockDefIndex)
+        {
+            EnsureLayers(doc, out int mastersLayerIndex, out int adminLayerIndex);
+
+            foreach (var obj in doc.Objects)
+            {
+                if (obj.Attributes.LayerIndex == mastersLayerIndex &&
+                    obj is InstanceObject instance &&
+                    instance.InstanceDefinition != null &&
+                    instance.InstanceDefinition.Index == cornerBlockDefIndex)
+                {
+                    return;
+                }
+            }
+
+            int facadeRow = FindFacadeMasterRow(doc, mastersLayerIndex, facadeBlockDefIndex);
+            if (facadeRow < 0)
+            {
+                facadeRow = Math.Max(0, CountExistingFacadeMasters(doc, mastersLayerIndex) - 1);
+            }
+
+            int cornerColumn = 1 + CountCornerMastersForFacade(doc, mastersLayerIndex, module.Name);
+
+            double boxSize = UnitConverter.MillimetersToModel(doc, BoxSizeMm);
+            double boxStartY = UnitConverter.MillimetersToModel(doc, BoxStartYMm);
+            double masterTextHeight = UnitConverter.MillimetersToModel(doc, MasterTextHeightMm);
+            double labelMargin = UnitConverter.MillimetersToModel(doc, LabelMarginMm);
+
+            double boxMinX = cornerColumn * boxSize;
+            double boxMaxX = boxMinX + boxSize;
+            double boxMinY = boxStartY - facadeRow * boxSize;
+            double boxMaxY = boxMinY + boxSize;
+
+            var adminAttribs = new ObjectAttributes { LayerIndex = adminLayerIndex };
+            var boxPts = new[]
+            {
+                new Point3d(boxMinX, boxMinY, 0.0),
+                new Point3d(boxMaxX, boxMinY, 0.0),
+                new Point3d(boxMaxX, boxMaxY, 0.0),
+                new Point3d(boxMinX, boxMaxY, 0.0),
+                new Point3d(boxMinX, boxMinY, 0.0)
+            };
+            doc.Objects.AddCurve(new Polyline(boxPts).ToNurbsCurve(), adminAttribs);
+
+            var definition = doc.InstanceDefinitions[cornerBlockDefIndex];
+            string label = definition?.Name ?? "Corner placeholder";
+            int separator = label.LastIndexOf("::", StringComparison.Ordinal);
+            if (separator >= 0 && separator + 2 < label.Length)
+                label = label.Substring(separator + 2);
+            AddText(
+                doc,
+                label,
+                new Point3d(boxMinX + labelMargin, boxMaxY - labelMargin, 0.0),
+                masterTextHeight,
+                adminLayerIndex);
+
+            BoundingBox bbox = BoundingBox.Empty;
+            if (definition != null)
+            {
+                foreach (var obj in definition.GetObjects())
+                    bbox.Union(obj.Geometry.GetBoundingBox(true));
+            }
+
+            if (!bbox.IsValid)
+                return;
+
+            double offsetX = boxMinX + (boxSize - (bbox.Max.X - bbox.Min.X)) * 0.5 - bbox.Min.X;
+            double offsetY = boxMinY + (boxSize - (bbox.Max.Y - bbox.Min.Y)) * 0.5 - bbox.Min.Y;
+            double offsetZ = -bbox.Min.Z;
+
+            doc.Objects.AddInstanceObject(
+                cornerBlockDefIndex,
+                Transform.Translation(offsetX, offsetY, offsetZ),
+                new ObjectAttributes { LayerIndex = mastersLayerIndex });
+
+            RhinoApp.WriteLine("Lichen: placed corner master for {0}", label);
+        }
+
+        private static int FindFacadeMasterRow(RhinoDoc doc, int mastersLayerIndex, int facadeBlockDefIndex)
+        {
+            double boxSize = UnitConverter.MillimetersToModel(doc, BoxSizeMm);
+            double boxStartY = UnitConverter.MillimetersToModel(doc, BoxStartYMm);
+            double firstFacadeY = boxStartY + boxSize * 0.5;
+
+            foreach (var obj in doc.Objects)
+            {
+                if (obj.Attributes.LayerIndex != mastersLayerIndex || !(obj is InstanceObject instance))
+                    continue;
+
+                if (instance.InstanceDefinition == null || instance.InstanceDefinition.Index != facadeBlockDefIndex)
+                    continue;
+
+                double y = instance.InstanceXform.M13;
+                return Math.Max(0, (int)Math.Round((firstFacadeY - y) / boxSize));
+            }
+
+            return -1;
+        }
+
+        private static int CountCornerMastersForFacade(RhinoDoc doc, int mastersLayerIndex, string moduleName)
+        {
+            string prefix = "Lichen::CornerPlaceholder::" + moduleName + "::";
+            int count = 0;
+
+            foreach (var obj in doc.Objects)
+            {
+                if (obj.Attributes.LayerIndex != mastersLayerIndex || !(obj is InstanceObject instance))
+                    continue;
+
+                string name = instance.InstanceDefinition?.Name ?? string.Empty;
+                if (name.StartsWith(prefix, StringComparison.Ordinal))
+                    count++;
+            }
+
+            return count;
+        }
+
+        private static bool TryIntersectPlanLines(
+            Point3d a,
+            Vector3d aDirection,
+            Point3d b,
+            Vector3d bDirection,
+            out Point3d intersection)
+        {
+            double cross = aDirection.X * bDirection.Y - aDirection.Y * bDirection.X;
+            if (Math.Abs(cross) < 1e-9)
+            {
+                intersection = Point3d.Unset;
+                return false;
+            }
+
+            double dx = b.X - a.X;
+            double dy = b.Y - a.Y;
+            double t = (dx * bDirection.Y - dy * bDirection.X) / cross;
+            intersection = a + aDirection * t;
+            intersection.Z = 0.0;
+            return true;
+        }
+
         // ─── helpers ──────────────────────────────────────────────────────────────
 
-        private static int CountExistingMasters(RhinoDoc doc, int mastersLayerIndex)
+        private static int CountExistingFacadeMasters(RhinoDoc doc, int mastersLayerIndex)
         {
             int count = 0;
             foreach (var obj in doc.Objects)
             {
-                if (obj.Attributes.LayerIndex == mastersLayerIndex && obj is InstanceObject)
+                if (obj.Attributes.LayerIndex != mastersLayerIndex || !(obj is InstanceObject instance))
+                    continue;
+
+                string name = instance.InstanceDefinition?.Name ?? string.Empty;
+                if (name.StartsWith("Lichen::", StringComparison.Ordinal) &&
+                    !name.StartsWith("Lichen::CornerPlaceholder::", StringComparison.Ordinal))
+                {
                     count++;
+                }
             }
             return count;
         }
@@ -359,7 +624,7 @@ namespace Lichen.Core
             }
 
             var linetype = new Linetype { Name = "Lichen_Dotted" };
-            
+
             double segmentLength = UnitConverter.MillimetersToModel(
                 doc,
                 DottedSegmentLengthMm);

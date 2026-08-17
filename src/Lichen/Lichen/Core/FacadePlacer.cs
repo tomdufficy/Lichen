@@ -13,6 +13,18 @@ namespace Lichen.Core
         Right
     }
 
+    public class FacadeVerticalSpan
+    {
+        public FacadeVerticalSpan(double minZ, double maxZ)
+        {
+            MinZ = minZ;
+            MaxZ = maxZ;
+        }
+
+        public double MinZ { get; }
+        public double MaxZ { get; }
+    }
+
     public class FacadePlacementOptions
     {
         public bool StretchVertically { get; set; } = true;
@@ -47,15 +59,13 @@ namespace Lichen.Core
             return wallFaces;
         }
 
-        public static void PlaceFacadesOnFace(
+        public static List<FacadeVerticalSpan> PlaceFacadesOnFace(
             RhinoDoc doc,
             BrepFace face,
             int blockDefIndex,
             FacadePlacementOptions options)
         {
-            Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
-            normal.Unitize();
-            if (!face.OrientationIsReversed) normal = -normal;
+            Vector3d normal = GetFacadeNormal(face);
 
             Vector3d xAxis = Vector3d.CrossProduct(Vector3d.ZAxis, normal);
             xAxis.Unitize();
@@ -89,7 +99,7 @@ namespace Lichen.Core
             if (!moduleBBox.IsValid)
             {
                 RhinoApp.WriteLine("Lichen: could not get bounding box for block");
-                return;
+                return new List<FacadeVerticalSpan>();
             }
 
             double moduleWidth = moduleBBox.Max.X - moduleBBox.Min.X;
@@ -98,7 +108,7 @@ namespace Lichen.Core
             if (moduleWidth <= 0 || moduleHeight <= 0)
             {
                 RhinoApp.WriteLine("Lichen: block has zero size");
-                return;
+                return new List<FacadeVerticalSpan>();
             }
 
             int countX;
@@ -184,6 +194,14 @@ namespace Lichen.Core
             var attribs = new Rhino.DocObjects.ObjectAttributes();
             attribs.LayerIndex = BlockManager.EnsureFacadesLayer(doc);
 
+            var verticalSpans = new List<FacadeVerticalSpan>();
+            for (int row = 0; row < countZ; row++)
+            {
+                double spanMinZ = minZ + row * moduleHeight * stretchZ;
+                double spanMaxZ = spanMinZ + moduleHeight * stretchZ;
+                verticalSpans.Add(new FacadeVerticalSpan(spanMinZ, spanMaxZ));
+            }
+
             for (int col = 0; col < countX; col++)
             {
                 for (int row = 0; row < countZ; row++)
@@ -200,6 +218,15 @@ namespace Lichen.Core
             }
 
             doc.Views.Redraw();
+            return verticalSpans;
+        }
+
+        public static Vector3d GetFacadeNormal(BrepFace face)
+        {
+            Vector3d normal = face.NormalAt(face.Domain(0).Mid, face.Domain(1).Mid);
+            normal.Unitize();
+            if (!face.OrientationIsReversed) normal = -normal;
+            return normal;
         }
     }
 }
