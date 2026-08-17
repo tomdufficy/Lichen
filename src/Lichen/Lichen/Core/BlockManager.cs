@@ -678,6 +678,8 @@ namespace Lichen.Core
             double boxSize = UnitConverter.MillimetersToModel(doc, BoxSizeMm);
             double boxStartY = UnitConverter.MillimetersToModel(doc, BoxStartYMm);
             double masterTextHeight = UnitConverter.MillimetersToModel(doc, MasterTextHeightMm);
+            double adminTextHeight = UnitConverter.MillimetersToModel(doc, AdminTextHeightMm);
+            double labelOffset = UnitConverter.MillimetersToModel(doc, LabelOffsetMm);
             double labelMargin = UnitConverter.MillimetersToModel(doc, LabelMarginMm);
 
             double boxMinX = column * boxSize;
@@ -723,12 +725,224 @@ namespace Lichen.Core
             double offsetY = boxMinY + (boxSize - (bbox.Max.Y - bbox.Min.Y)) * 0.5 - bbox.Min.Y;
             double offsetZ = -bbox.Min.Z;
 
+            if (string.Equals(kind, "gap", StringComparison.Ordinal))
+            {
+                AddGapMasterDatum(
+                    doc,
+                    boxMinX,
+                    boxMaxX,
+                    offsetY,
+                    labelMargin,
+                    labelOffset,
+                    adminTextHeight,
+                    adminLayerIndex);
+            }
+            else if (string.Equals(kind, "corner", StringComparison.Ordinal))
+            {
+                AddCornerMasterDatum(
+                    doc,
+                    definition?.Name,
+                    new Point3d(offsetX, offsetY, 0.0),
+                    boxMinX,
+                    boxMaxX,
+                    boxMinY,
+                    boxMaxY,
+                    labelOffset,
+                    adminTextHeight,
+                    adminLayerIndex);
+            }
+
             doc.Objects.AddInstanceObject(
                 associatedBlockDefIndex,
                 Transform.Translation(offsetX, offsetY, offsetZ),
                 new ObjectAttributes { LayerIndex = mastersLayerIndex });
 
             RhinoApp.WriteLine("Lichen: placed {0} master for {1}", kind, label);
+        }
+
+        private static void AddGapMasterDatum(
+            RhinoDoc doc,
+            double boxMinX,
+            double boxMaxX,
+            double datumY,
+            double labelMargin,
+            double labelOffset,
+            double adminTextHeight,
+            int adminLayerIndex)
+        {
+            var lineAttribs = CreateDottedAdminAttributes(doc, adminLayerIndex);
+            doc.Objects.AddCurve(
+                new LineCurve(
+                    new Point3d(boxMinX, datumY, 0.0),
+                    new Point3d(boxMaxX, datumY, 0.0)),
+                lineAttribs);
+
+            AddText(
+                doc,
+                "outside",
+                new Point3d(boxMinX + labelMargin, datumY + labelOffset, 0.0),
+                adminTextHeight,
+                adminLayerIndex);
+
+            AddText(
+                doc,
+                "inside",
+                new Point3d(boxMinX + labelMargin, datumY - labelOffset, 0.0),
+                adminTextHeight,
+                adminLayerIndex);
+        }
+
+        private static void AddCornerMasterDatum(
+            RhinoDoc doc,
+            string definitionName,
+            Point3d vertex,
+            double boxMinX,
+            double boxMaxX,
+            double boxMinY,
+            double boxMaxY,
+            double labelOffset,
+            double adminTextHeight,
+            int adminLayerIndex)
+        {
+            if (!TryParseCornerMasterDatum(definitionName, out double angleDegrees, out bool isConcave))
+                return;
+
+            double theta = angleDegrees * Math.PI / 180.0;
+            Vector3d firstDirection = Vector3d.XAxis;
+            Vector3d secondDirection = new Vector3d(Math.Cos(theta), Math.Sin(theta), 0.0);
+
+            var lineAttribs = CreateDottedAdminAttributes(doc, adminLayerIndex);
+            AddDatumRayToBoxEdge(
+                doc,
+                vertex,
+                firstDirection,
+                boxMinX,
+                boxMaxX,
+                boxMinY,
+                boxMaxY,
+                lineAttribs);
+            AddDatumRayToBoxEdge(
+                doc,
+                vertex,
+                secondDirection,
+                boxMinX,
+                boxMaxX,
+                boxMinY,
+                boxMaxY,
+                lineAttribs);
+
+            Vector3d smallerSectorBisector = firstDirection + secondDirection;
+            smallerSectorBisector.Z = 0.0;
+            if (!smallerSectorBisector.Unitize())
+                return;
+
+            Vector3d insideDirection = isConcave
+                ? -smallerSectorBisector
+                : smallerSectorBisector;
+            Vector3d outsideDirection = -insideDirection;
+
+            AddText(
+                doc,
+                "outside",
+                vertex + outsideDirection * labelOffset,
+                adminTextHeight,
+                adminLayerIndex);
+
+            AddText(
+                doc,
+                "inside",
+                vertex + insideDirection * labelOffset,
+                adminTextHeight,
+                adminLayerIndex);
+        }
+
+        private static bool TryParseCornerMasterDatum(
+            string definitionName,
+            out double angleDegrees,
+            out bool isConcave)
+        {
+            angleDegrees = 0.0;
+            isConcave = false;
+
+            if (string.IsNullOrEmpty(definitionName))
+                return false;
+
+            int separator = definitionName.LastIndexOf("::", StringComparison.Ordinal);
+            if (separator < 0 || separator + 2 >= definitionName.Length)
+                return false;
+
+            string suffix = definitionName.Substring(separator + 2);
+            const string concavePrefix = "Concave_";
+            const string convexPrefix = "Convex_";
+            int angleStart;
+
+            if (suffix.StartsWith(concavePrefix, StringComparison.Ordinal))
+            {
+                isConcave = true;
+                angleStart = concavePrefix.Length;
+            }
+            else if (suffix.StartsWith(convexPrefix, StringComparison.Ordinal))
+            {
+                angleStart = convexPrefix.Length;
+            }
+            else
+            {
+                return false;
+            }
+
+            int heightMarker = suffix.IndexOf("_H", angleStart, StringComparison.Ordinal);
+            if (heightMarker <= angleStart)
+                return false;
+
+            string angleText = suffix.Substring(angleStart, heightMarker - angleStart);
+            return double.TryParse(
+                angleText,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out angleDegrees);
+        }
+
+        private static void AddDatumRayToBoxEdge(
+            RhinoDoc doc,
+            Point3d origin,
+            Vector3d direction,
+            double boxMinX,
+            double boxMaxX,
+            double boxMinY,
+            double boxMaxY,
+            ObjectAttributes attributes)
+        {
+            if (!direction.Unitize())
+                return;
+
+            double distance = double.PositiveInfinity;
+
+            if (direction.X > 1e-9)
+                distance = Math.Min(distance, (boxMaxX - origin.X) / direction.X);
+            else if (direction.X < -1e-9)
+                distance = Math.Min(distance, (boxMinX - origin.X) / direction.X);
+
+            if (direction.Y > 1e-9)
+                distance = Math.Min(distance, (boxMaxY - origin.Y) / direction.Y);
+            else if (direction.Y < -1e-9)
+                distance = Math.Min(distance, (boxMinY - origin.Y) / direction.Y);
+
+            if (double.IsInfinity(distance) || distance <= 0.0)
+                return;
+
+            doc.Objects.AddCurve(
+                new LineCurve(origin, origin + direction * distance),
+                attributes);
+        }
+
+        private static ObjectAttributes CreateDottedAdminAttributes(RhinoDoc doc, int adminLayerIndex)
+        {
+            return new ObjectAttributes
+            {
+                LayerIndex = adminLayerIndex,
+                LinetypeSource = ObjectLinetypeSource.LinetypeFromObject,
+                LinetypeIndex = GetOrCreateDottedLinetype(doc)
+            };
         }
 
         private static int FindFacadeMasterRow(RhinoDoc doc, int mastersLayerIndex, int facadeBlockDefIndex)
