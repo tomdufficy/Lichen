@@ -329,7 +329,6 @@ Each module has an authored width and height that Lichen uses when calculating r
     </td>
   </tr>
 </table>
-
 <!-- FACADE_LIBRARY_END -->
 
 ## Roadmap
