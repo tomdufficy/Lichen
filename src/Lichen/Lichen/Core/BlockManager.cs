@@ -71,6 +71,12 @@ namespace Lichen.Core
             return EnsureLayer(doc, "Corners", GoldenLichen, lichenIndex);
         }
 
+        public static int EnsureGapsLayer(RhinoDoc doc)
+        {
+            int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
+            return EnsureLayer(doc, "Gaps", MineralBlue, lichenIndex);
+        }
+
         public static int EnsureSlabLayer(RhinoDoc doc, bool isFloor)
         {
             int lichenIndex = EnsureLayer(doc, "Lichen", LichenGreen, -1);
@@ -222,6 +228,185 @@ namespace Lichen.Core
 
             RhinoApp.WriteLine("Lichen: imported block definition {0}", blockName);
             return defIndex;
+        }
+
+
+        public static int GetOrCreateCustomFacadeDefinition(
+            RhinoDoc doc,
+            string blockName,
+            double widthMm,
+            double heightMm,
+            double depthInsideMm,
+            double depthOutsideMm,
+            out bool wasCreated)
+        {
+            wasCreated = false;
+
+            var existing = doc.InstanceDefinitions.Find(blockName);
+            if (existing != null)
+                return existing.Index;
+
+            double width = UnitConverter.MillimetersToModel(doc, widthMm);
+            double height = UnitConverter.MillimetersToModel(doc, heightMm);
+            double depthInside = UnitConverter.MillimetersToModel(doc, depthInsideMm);
+            double depthOutside = UnitConverter.MillimetersToModel(doc, depthOutsideMm);
+
+            int layerIndex = EnsureFacadesLayer(doc);
+            var geometries = CreateWireframeBox(
+                width,
+                -depthInside,
+                depthOutside,
+                height);
+            var attributes = new List<ObjectAttributes>();
+            foreach (var geometry in geometries)
+                attributes.Add(new ObjectAttributes { LayerIndex = layerIndex });
+
+            string description = FormatCustomFacadeDescription(
+                widthMm,
+                heightMm,
+                depthInsideMm,
+                depthOutsideMm);
+
+            int definitionIndex = doc.InstanceDefinitions.Add(
+                blockName,
+                description,
+                Point3d.Origin,
+                geometries,
+                attributes);
+
+            if (definitionIndex >= 0)
+            {
+                wasCreated = true;
+                RhinoApp.WriteLine("Lichen: created custom facade definition {0}", blockName);
+            }
+
+            return definitionIndex;
+        }
+
+        public static bool CustomFacadeDimensionsMatch(
+            RhinoDoc doc,
+            string blockName,
+            double widthMm,
+            double heightMm,
+            double depthInsideMm,
+            double depthOutsideMm)
+        {
+            var definition = doc.InstanceDefinitions.Find(blockName);
+            if (definition == null)
+                return true;
+
+            if (TryParseCustomFacadeDescription(
+                definition.Description,
+                out double storedWidth,
+                out double storedHeight,
+                out double storedInside,
+                out double storedOutside))
+            {
+                return NearlyEqual(storedWidth, widthMm) &&
+                       NearlyEqual(storedHeight, heightMm) &&
+                       NearlyEqual(storedInside, depthInsideMm) &&
+                       NearlyEqual(storedOutside, depthOutsideMm);
+            }
+
+            BoundingBox bbox = BoundingBox.Empty;
+            foreach (var obj in definition.GetObjects())
+                bbox.Union(obj.Geometry.GetBoundingBox(true));
+
+            if (!bbox.IsValid)
+                return false;
+
+            double mmPerModelUnit = 1.0 / UnitConverter.MillimetersToModel(doc, 1.0);
+            double actualWidth = (bbox.Max.X - bbox.Min.X) * mmPerModelUnit;
+            double actualHeight = (bbox.Max.Z - bbox.Min.Z) * mmPerModelUnit;
+            double actualInside = Math.Max(0.0, -bbox.Min.Y) * mmPerModelUnit;
+            double actualOutside = Math.Max(0.0, bbox.Max.Y) * mmPerModelUnit;
+
+            return NearlyEqual(actualWidth, widthMm) &&
+                   NearlyEqual(actualHeight, heightMm) &&
+                   NearlyEqual(actualInside, depthInsideMm) &&
+                   NearlyEqual(actualOutside, depthOutsideMm);
+        }
+
+        public static void GetFacadeDepths(
+            RhinoDoc doc,
+            int blockDefIndex,
+            out double depthInside,
+            out double depthOutside)
+        {
+            depthInside = 0.0;
+            depthOutside = 0.0;
+
+            var definition = doc.InstanceDefinitions[blockDefIndex];
+            if (definition == null)
+                return;
+
+            BoundingBox bbox = BoundingBox.Empty;
+            foreach (var obj in definition.GetObjects())
+                bbox.Union(obj.Geometry.GetBoundingBox(true));
+
+            if (!bbox.IsValid)
+                return;
+
+            depthInside = Math.Max(0.0, -bbox.Min.Y);
+            depthOutside = Math.Max(0.0, bbox.Max.Y);
+        }
+
+        private static string FormatCustomFacadeDescription(
+            double widthMm,
+            double heightMm,
+            double depthInsideMm,
+            double depthOutsideMm)
+        {
+            return string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Lichen custom facade; WidthMm={0:R}; HeightMm={1:R}; DepthInsideMm={2:R}; DepthOutsideMm={3:R}",
+                widthMm,
+                heightMm,
+                depthInsideMm,
+                depthOutsideMm);
+        }
+
+        private static bool TryParseCustomFacadeDescription(
+            string description,
+            out double widthMm,
+            out double heightMm,
+            out double depthInsideMm,
+            out double depthOutsideMm)
+        {
+            widthMm = heightMm = depthInsideMm = depthOutsideMm = 0.0;
+            if (string.IsNullOrWhiteSpace(description) ||
+                !description.StartsWith("Lichen custom facade;", StringComparison.Ordinal))
+                return false;
+
+            var values = new Dictionary<string, double>(StringComparer.Ordinal);
+            string[] parts = description.Split(';');
+            foreach (string part in parts)
+            {
+                int equals = part.IndexOf('=');
+                if (equals < 0)
+                    continue;
+
+                string key = part.Substring(0, equals).Trim();
+                string value = part.Substring(equals + 1).Trim();
+                if (double.TryParse(
+                    value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double parsed))
+                {
+                    values[key] = parsed;
+                }
+            }
+
+            return values.TryGetValue("WidthMm", out widthMm) &&
+                   values.TryGetValue("HeightMm", out heightMm) &&
+                   values.TryGetValue("DepthInsideMm", out depthInsideMm) &&
+                   values.TryGetValue("DepthOutsideMm", out depthOutsideMm);
+        }
+
+        private static bool NearlyEqual(double a, double b)
+        {
+            return Math.Abs(a - b) <= 0.01;
         }
 
         // ─── master placement ─────────────────────────────────────────────────────
@@ -441,6 +626,21 @@ namespace Lichen.Core
             int facadeBlockDefIndex,
             int cornerBlockDefIndex)
         {
+            EnsureAssociatedMaster(
+                doc,
+                module,
+                facadeBlockDefIndex,
+                cornerBlockDefIndex,
+                "corner");
+        }
+
+        private static void EnsureAssociatedMaster(
+            RhinoDoc doc,
+            FacadeModule module,
+            int facadeBlockDefIndex,
+            int associatedBlockDefIndex,
+            string kind)
+        {
             EnsureLayers(doc, out int mastersLayerIndex, out int adminLayerIndex);
 
             foreach (var obj in doc.Objects)
@@ -448,7 +648,7 @@ namespace Lichen.Core
                 if (obj.Attributes.LayerIndex == mastersLayerIndex &&
                     obj is InstanceObject instance &&
                     instance.InstanceDefinition != null &&
-                    instance.InstanceDefinition.Index == cornerBlockDefIndex)
+                    instance.InstanceDefinition.Index == associatedBlockDefIndex)
                 {
                     return;
                 }
@@ -456,18 +656,16 @@ namespace Lichen.Core
 
             int facadeRow = FindFacadeMasterRow(doc, mastersLayerIndex, facadeBlockDefIndex);
             if (facadeRow < 0)
-            {
                 facadeRow = Math.Max(0, CountExistingFacadeMasters(doc, mastersLayerIndex) - 1);
-            }
 
-            int cornerColumn = 1 + CountCornerMastersForFacade(doc, mastersLayerIndex, module.Name);
+            int column = 1 + CountAssociatedMastersForFacade(doc, mastersLayerIndex, module.Name);
 
             double boxSize = UnitConverter.MillimetersToModel(doc, BoxSizeMm);
             double boxStartY = UnitConverter.MillimetersToModel(doc, BoxStartYMm);
             double masterTextHeight = UnitConverter.MillimetersToModel(doc, MasterTextHeightMm);
             double labelMargin = UnitConverter.MillimetersToModel(doc, LabelMarginMm);
 
-            double boxMinX = cornerColumn * boxSize;
+            double boxMinX = column * boxSize;
             double boxMaxX = boxMinX + boxSize;
             double boxMinY = boxStartY - facadeRow * boxSize;
             double boxMaxY = boxMinY + boxSize;
@@ -483,11 +681,12 @@ namespace Lichen.Core
             };
             doc.Objects.AddCurve(new Polyline(boxPts).ToNurbsCurve(), adminAttribs);
 
-            var definition = doc.InstanceDefinitions[cornerBlockDefIndex];
-            string label = definition?.Name ?? "Corner placeholder";
+            var definition = doc.InstanceDefinitions[associatedBlockDefIndex];
+            string label = definition?.Name ?? (kind + " placeholder");
             int separator = label.LastIndexOf("::", StringComparison.Ordinal);
             if (separator >= 0 && separator + 2 < label.Length)
                 label = label.Substring(separator + 2);
+
             AddText(
                 doc,
                 label,
@@ -510,11 +709,11 @@ namespace Lichen.Core
             double offsetZ = -bbox.Min.Z;
 
             doc.Objects.AddInstanceObject(
-                cornerBlockDefIndex,
+                associatedBlockDefIndex,
                 Transform.Translation(offsetX, offsetY, offsetZ),
                 new ObjectAttributes { LayerIndex = mastersLayerIndex });
 
-            RhinoApp.WriteLine("Lichen: placed corner master for {0}", label);
+            RhinoApp.WriteLine("Lichen: placed {0} master for {1}", kind, label);
         }
 
         private static int FindFacadeMasterRow(RhinoDoc doc, int mastersLayerIndex, int facadeBlockDefIndex)
@@ -538,9 +737,13 @@ namespace Lichen.Core
             return -1;
         }
 
-        private static int CountCornerMastersForFacade(RhinoDoc doc, int mastersLayerIndex, string moduleName)
+        private static int CountAssociatedMastersForFacade(
+            RhinoDoc doc,
+            int mastersLayerIndex,
+            string moduleName)
         {
-            string prefix = "Lichen::CornerPlaceholder::" + moduleName + "::";
+            string cornerPrefix = "Lichen::CornerPlaceholder::" + moduleName + "::";
+            string gapPrefix = "Lichen::GapPlaceholder::" + moduleName + "::";
             int count = 0;
 
             foreach (var obj in doc.Objects)
@@ -549,11 +752,103 @@ namespace Lichen.Core
                     continue;
 
                 string name = instance.InstanceDefinition?.Name ?? string.Empty;
-                if (name.StartsWith(prefix, StringComparison.Ordinal))
+                if (name.StartsWith(cornerPrefix, StringComparison.Ordinal) ||
+                    name.StartsWith(gapPrefix, StringComparison.Ordinal))
+                {
                     count++;
+                }
             }
 
             return count;
+        }
+
+        public static int GetOrCreateGapPlaceholderDefinition(
+            RhinoDoc doc,
+            FacadeModule module,
+            double width,
+            double height,
+            double depthInside,
+            double depthOutside)
+        {
+            double mmPerModelUnit = 1.0 / UnitConverter.MillimetersToModel(doc, 1.0);
+            double roundedWidthMm = Math.Round(width * mmPerModelUnit);
+            double roundedHeightMm = Math.Round(height * mmPerModelUnit);
+
+            string blockName = string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Lichen::GapPlaceholder::{0}::W{1:0}_H{2:0}",
+                module.Name,
+                roundedWidthMm,
+                roundedHeightMm);
+
+            var existing = doc.InstanceDefinitions.Find(blockName);
+            if (existing != null)
+                return existing.Index;
+
+            var geometries = CreateWireframeBox(
+                width,
+                -depthInside,
+                depthOutside,
+                height);
+            int gapsLayerIndex = EnsureGapsLayer(doc);
+            var attributes = new List<ObjectAttributes>();
+            foreach (var geometry in geometries)
+                attributes.Add(new ObjectAttributes { LayerIndex = gapsLayerIndex });
+
+            int definitionIndex = doc.InstanceDefinitions.Add(
+                blockName,
+                module.Name + " horizontal gap placeholder",
+                Point3d.Origin,
+                geometries,
+                attributes);
+
+            if (definitionIndex >= 0)
+                RhinoApp.WriteLine("Lichen: created gap placeholder definition {0}", blockName);
+
+            return definitionIndex;
+        }
+
+        public static void EnsureGapMaster(
+            RhinoDoc doc,
+            FacadeModule module,
+            int facadeBlockDefIndex,
+            int gapBlockDefIndex)
+        {
+            EnsureAssociatedMaster(
+                doc,
+                module,
+                facadeBlockDefIndex,
+                gapBlockDefIndex,
+                "gap");
+        }
+
+        private static List<GeometryBase> CreateWireframeBox(
+            double width,
+            double minY,
+            double maxY,
+            double height)
+        {
+            var result = new List<GeometryBase>();
+            var bottom = new[]
+            {
+                new Point3d(0.0, minY, 0.0),
+                new Point3d(width, minY, 0.0),
+                new Point3d(width, maxY, 0.0),
+                new Point3d(0.0, maxY, 0.0)
+            };
+            var top = new Point3d[4];
+            for (int i = 0; i < 4; i++)
+                top[i] = bottom[i] + Vector3d.ZAxis * height;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int next = (i + 1) % 4;
+                result.Add(new LineCurve(bottom[i], bottom[next]));
+                result.Add(new LineCurve(top[i], top[next]));
+                result.Add(new LineCurve(bottom[i], top[i]));
+            }
+
+            return result;
         }
 
         private static bool TryIntersectPlanLines(
@@ -589,11 +884,14 @@ namespace Lichen.Core
                     continue;
 
                 string name = instance.InstanceDefinition?.Name ?? string.Empty;
-                if (name.StartsWith("Lichen::", StringComparison.Ordinal) &&
-                    !name.StartsWith("Lichen::CornerPlaceholder::", StringComparison.Ordinal))
-                {
+                bool isFacade =
+                    (name.StartsWith("Lichen::", StringComparison.Ordinal) ||
+                     name.StartsWith("Lichen_Custom_", StringComparison.Ordinal)) &&
+                    !name.StartsWith("Lichen::CornerPlaceholder::", StringComparison.Ordinal) &&
+                    !name.StartsWith("Lichen::GapPlaceholder::", StringComparison.Ordinal);
+
+                if (isFacade)
                     count++;
-                }
             }
             return count;
         }

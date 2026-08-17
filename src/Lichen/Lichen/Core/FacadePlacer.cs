@@ -5,12 +5,16 @@ using System.Collections.Generic;
 
 namespace Lichen.Core
 {
-    public enum HorizontalAlignmentMode
+    public enum HorizontalPlacementMode
     {
-        EvenSpacing,
-        Left,
-        Centre,
-        Right
+        Centered,
+        EndToEnd
+    }
+
+    public enum CenteredEdgeGapMode
+    {
+        HalfInternalGap,
+        EqualToInternalGap
     }
 
     public class FacadeVerticalSpan
@@ -25,12 +29,39 @@ namespace Lichen.Core
         public double MaxZ { get; }
     }
 
+    public class FacadeHorizontalGap
+    {
+        public FacadeHorizontalGap(double startOffset, double width, bool isEdge)
+        {
+            StartOffset = startOffset;
+            Width = width;
+            IsEdge = isEdge;
+        }
+
+        public double StartOffset { get; }
+        public double Width { get; }
+        public bool IsEdge { get; }
+    }
+
+    public class FacadePlacementResult
+    {
+        public Point3d BottomLeft { get; set; }
+        public Vector3d XAxis { get; set; }
+        public Vector3d Normal { get; set; }
+        public List<FacadeVerticalSpan> VerticalSpans { get; } =
+            new List<FacadeVerticalSpan>();
+        public List<FacadeHorizontalGap> HorizontalGaps { get; } =
+            new List<FacadeHorizontalGap>();
+    }
+
     public class FacadePlacementOptions
     {
         public bool StretchVertically { get; set; } = true;
         public bool StretchHorizontally { get; set; } = true;
-        public HorizontalAlignmentMode HorizontalAlignment { get; set; } =
-            HorizontalAlignmentMode.EvenSpacing;
+        public HorizontalPlacementMode HorizontalPlacement { get; set; } =
+            HorizontalPlacementMode.Centered;
+        public CenteredEdgeGapMode CenteredEdgeGaps { get; set; } =
+            CenteredEdgeGapMode.HalfInternalGap;
     }
 
     public class FacadePlacer
@@ -116,12 +147,14 @@ namespace Lichen.Core
             return wallFaces;
         }
 
-        public static List<FacadeVerticalSpan> PlaceFacadesOnFace(
+        public static FacadePlacementResult PlaceFacadesOnFace(
             RhinoDoc doc,
             BrepFace face,
             int blockDefIndex,
             FacadePlacementOptions options)
         {
+            var result = new FacadePlacementResult();
+
             Vector3d normal = GetFacadeNormal(face);
 
             Vector3d xAxis = Vector3d.CrossProduct(Vector3d.ZAxis, normal);
@@ -148,6 +181,10 @@ namespace Lichen.Core
                 + xAxis * (minX - Vector3d.Multiply(new Vector3d(faceCentre), xAxis))
                 + Vector3d.ZAxis * (minZ - faceCentre.Z);
 
+            result.BottomLeft = bottomLeft;
+            result.XAxis = xAxis;
+            result.Normal = normal;
+
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
             BoundingBox moduleBBox = BoundingBox.Empty;
             foreach (var obj in blockDef.GetObjects())
@@ -156,7 +193,7 @@ namespace Lichen.Core
             if (!moduleBBox.IsValid)
             {
                 RhinoApp.WriteLine("Lichen: could not get bounding box for block");
-                return new List<FacadeVerticalSpan>();
+                return result;
             }
 
             double moduleWidth = moduleBBox.Max.X - moduleBBox.Min.X;
@@ -165,7 +202,7 @@ namespace Lichen.Core
             if (moduleWidth <= 0 || moduleHeight <= 0)
             {
                 RhinoApp.WriteLine("Lichen: block has zero size");
-                return new List<FacadeVerticalSpan>();
+                return result;
             }
 
             int countX;
@@ -188,28 +225,56 @@ namespace Lichen.Core
                 double usedWidth = countX * moduleWidth;
                 double remainingWidth = faceWidth - usedWidth;
 
-                switch (options.HorizontalAlignment)
+                if (remainingWidth < 0.0)
                 {
-                    case HorizontalAlignmentMode.Left:
+                    horizontalStartOffset = options.HorizontalPlacement == HorizontalPlacementMode.Centered
+                        ? remainingWidth * 0.5
+                        : 0.0;
+                    horizontalStep = moduleWidth;
+                }
+                else if (options.HorizontalPlacement == HorizontalPlacementMode.EndToEnd)
+                {
+                    if (countX > 1)
+                    {
+                        double gap = remainingWidth / (countX - 1);
                         horizontalStartOffset = 0.0;
-                        horizontalStep = moduleWidth;
-                        break;
-
-                    case HorizontalAlignmentMode.Centre:
+                        horizontalStep = moduleWidth + gap;
+                        AddInternalGaps(result.HorizontalGaps, countX, moduleWidth, horizontalStartOffset, horizontalStep);
+                    }
+                    else
+                    {
+                        // With a single fixed-width module there is no meaningful
+                        // end-to-end distribution, so centre it on the face.
                         horizontalStartOffset = remainingWidth * 0.5;
                         horizontalStep = moduleWidth;
-                        break;
+                    }
+                }
+                else
+                {
+                    double internalGap;
+                    double edgeGap;
 
-                    case HorizontalAlignmentMode.Right:
-                        horizontalStartOffset = remainingWidth;
-                        horizontalStep = moduleWidth;
-                        break;
+                    if (options.CenteredEdgeGaps == CenteredEdgeGapMode.EqualToInternalGap)
+                    {
+                        internalGap = remainingWidth / (countX + 1);
+                        edgeGap = internalGap;
+                    }
+                    else
+                    {
+                        internalGap = remainingWidth / countX;
+                        edgeGap = internalGap * 0.5;
+                    }
 
-                    default:
-                        double gap = remainingWidth / (countX + 1);
-                        horizontalStartOffset = gap;
-                        horizontalStep = moduleWidth + gap;
-                        break;
+                    horizontalStartOffset = edgeGap;
+                    horizontalStep = moduleWidth + internalGap;
+
+                    AddCenteredGaps(
+                        result.HorizontalGaps,
+                        faceWidth,
+                        countX,
+                        moduleWidth,
+                        horizontalStartOffset,
+                        horizontalStep);
                 }
             }
 
@@ -248,15 +313,16 @@ namespace Lichen.Core
 
             Transform scale = Transform.Scale(Plane.WorldXY, stretchX, 1.0, stretchZ);
 
-            var attribs = new Rhino.DocObjects.ObjectAttributes();
-            attribs.LayerIndex = BlockManager.EnsureFacadesLayer(doc);
+            var attribs = new Rhino.DocObjects.ObjectAttributes
+            {
+                LayerIndex = BlockManager.EnsureFacadesLayer(doc)
+            };
 
-            var verticalSpans = new List<FacadeVerticalSpan>();
             for (int row = 0; row < countZ; row++)
             {
                 double spanMinZ = minZ + row * moduleHeight * stretchZ;
                 double spanMaxZ = spanMinZ + moduleHeight * stretchZ;
-                verticalSpans.Add(new FacadeVerticalSpan(spanMinZ, spanMaxZ));
+                result.VerticalSpans.Add(new FacadeVerticalSpan(spanMinZ, spanMaxZ));
             }
 
             for (int col = 0; col < countX; col++)
@@ -275,7 +341,42 @@ namespace Lichen.Core
             }
 
             doc.Views.Redraw();
-            return verticalSpans;
+            return result;
+        }
+
+        private static void AddInternalGaps(
+            List<FacadeHorizontalGap> gaps,
+            int countX,
+            double moduleWidth,
+            double startOffset,
+            double step)
+        {
+            for (int col = 0; col < countX - 1; col++)
+            {
+                double start = startOffset + col * step + moduleWidth;
+                double width = step - moduleWidth;
+                if (width > 0.0)
+                    gaps.Add(new FacadeHorizontalGap(start, width, false));
+            }
+        }
+
+        private static void AddCenteredGaps(
+            List<FacadeHorizontalGap> gaps,
+            double faceWidth,
+            int countX,
+            double moduleWidth,
+            double startOffset,
+            double step)
+        {
+            if (startOffset > 0.0)
+                gaps.Add(new FacadeHorizontalGap(0.0, startOffset, true));
+
+            AddInternalGaps(gaps, countX, moduleWidth, startOffset, step);
+
+            double lastModuleEnd = startOffset + (countX - 1) * step + moduleWidth;
+            double rightGap = faceWidth - lastModuleEnd;
+            if (rightGap > 0.0)
+                gaps.Add(new FacadeHorizontalGap(lastModuleEnd, rightGap, true));
         }
 
         public static Vector3d GetFacadeNormal(BrepFace face)

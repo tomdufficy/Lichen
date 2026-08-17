@@ -51,10 +51,13 @@ namespace Lichen.Commands
             {
                 StretchVertically = dialog.StretchVertically,
                 StretchHorizontally = dialog.StretchHorizontally,
-                HorizontalAlignment = dialog.HorizontalAlignment
+                HorizontalPlacement = dialog.HorizontalPlacement,
+                CenteredEdgeGaps = dialog.CenteredEdgeGaps
             };
 
             bool generateCornerPlaceholders = dialog.GenerateCornerPlaceholders;
+            bool generateGapFillers = dialog.GenerateGapFillers;
+            bool includeEdgeGapFillers = dialog.IncludeEdgeGapFillers;
 
             var slabOptions = new SlabGenerationOptions
             {
@@ -102,23 +105,17 @@ namespace Lichen.Commands
 
 
             // Facade modules are authored with Y = 0 on the facade line.
-            // FacadePlacer maps local +Y outward, so only geometry extending
-            // into negative local Y occupies the building interior.
-            double inwardFacadeDepth = 0.0;
-            var blockDefinition = doc.InstanceDefinitions[blockDefIndex];
-            if (blockDefinition != null)
-            {
-                BoundingBox moduleBounds = BoundingBox.Empty;
-                foreach (var obj in blockDefinition.GetObjects())
-                    moduleBounds.Union(obj.Geometry.GetBoundingBox(true));
-
-                if (moduleBounds.IsValid && moduleBounds.Min.Y < 0.0)
-                    inwardFacadeDepth = -moduleBounds.Min.Y;
-            }
+            // Local +Y is outside and local -Y is inside.
+            BlockManager.GetFacadeDepths(
+                doc,
+                blockDefIndex,
+                out double inwardFacadeDepth,
+                out double outwardFacadeDepth);
 
             RhinoApp.WriteLine(
-                "Lichen: facade inward depth = {0:G6} model units",
-                inwardFacadeDepth);
+                "Lichen: facade depth = {0:G6} inside / {1:G6} outside model units",
+                inwardFacadeDepth,
+                outwardFacadeDepth);
 
             if (isNewBlock)
             {
@@ -171,16 +168,19 @@ namespace Lichen.Commands
 
                 var placedSpansByFace =
                     new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<FacadeVerticalSpan>>();
+                var placementsByFace =
+                    new System.Collections.Generic.Dictionary<int, FacadePlacementResult>();
 
                 foreach (var face in wallFaces)
                 {
-                    var verticalSpans = FacadePlacer.PlaceFacadesOnFace(
+                    FacadePlacementResult placement = FacadePlacer.PlaceFacadesOnFace(
                         doc,
                         face,
                         blockDefIndex,
                         placementOptions);
 
-                    placedSpansByFace[face.FaceIndex] = verticalSpans;
+                    placementsByFace[face.FaceIndex] = placement;
+                    placedSpansByFace[face.FaceIndex] = placement.VerticalSpans;
                 }
 
                 if (generateCornerPlaceholders)
@@ -195,6 +195,26 @@ namespace Lichen.Commands
                     RhinoApp.WriteLine(
                         "Lichen: placed {0} corner placeholder(s)",
                         cornerCount);
+                }
+
+                if (generateGapFillers)
+                {
+                    int gapCount = 0;
+                    foreach (FacadePlacementResult placement in placementsByFace.Values)
+                    {
+                        gapCount += GapGenerator.GenerateForFace(
+                            doc,
+                            selectedModule,
+                            blockDefIndex,
+                            placement,
+                            inwardFacadeDepth,
+                            outwardFacadeDepth,
+                            includeEdgeGapFillers);
+                    }
+
+                    RhinoApp.WriteLine(
+                        "Lichen: placed {0} gap filler placeholder(s)",
+                        gapCount);
                 }
 
                 SlabGenerator.GenerateForVolume(

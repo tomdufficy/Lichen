@@ -6,7 +6,7 @@
 
 Modular facade generation tools for Rhino 8.
 
-Lichen applies reusable facade modules to simple building massing models with planar vertical facade faces. It is intended for quickly testing facade systems on architectural massing while keeping the generated facade, slab, corner, and master geometry editable in Rhino.
+Lichen applies reusable facade systems to simple building massing models with planar vertical facade faces. Use a facade from the included library with `LichenApply`, or create a project-specific wireframe module directly in Rhino with `LichenCustom`.
 
 ## Demo
 
@@ -16,176 +16,210 @@ Lichen applies reusable facade modules to simple building massing models with pl
 
 ## Installation
 
-1. Open **Rhino Package Manager**
-2. Enable **Include pre-releases**
-3. Search for **Lichen**
-4. Install
+1. Open **Rhino Package Manager**.
+2. Enable **Include pre-releases**.
+3. Search for **Lichen**.
+4. Install.
 
 ## Commands
 
 ### LichenApply
 
-`LichenApply` is the main Lichen command. It opens the facade library, lets you choose how the facade should be fitted to the building, and then applies the selected module to one or more building massing Breps.
-
-#### Basic workflow
+`LichenApply` is the main library-based facade command.
 
 1. Run `LichenApply`.
-2. Select a facade module from the library.
-3. Choose the vertical and horizontal fitting options.
-4. Optionally enable corner placeholders, floor slabs, and/or ceiling slabs.
+2. Choose a facade module from the library.
+3. Choose how the module should repeat or stretch.
+4. Optionally generate corner placeholders, gap fillers, floor slabs, and ceiling slabs.
 5. Click **Apply**.
-6. Select one or more building massing Breps with planar vertical facade faces.
+6. Select one or more building massing Breps.
 
-Lichen imports the selected facade as a Rhino block definition, places facade block instances on each supported facade face, and creates the associated Lichen layers and master geometry.
+Lichen imports the selected facade as a Rhino block definition, places block instances on every supported facade face, and creates editable master geometry away from the building model.
 
-#### Vertical Stretch
+#### Vertical placement
 
 **Stretch modules vertically to fit facade** — **default**
 
-Lichen determines how many complete module rows best fit the facade height, then scales the modules vertically so those rows exactly fill the full height of the facade.
+Lichen chooses a suitable number of rows and scales the modules vertically so those rows exactly fill the facade height.
 
 **Repeat modules vertically if space permits**
 
-Lichen preserves the module's original height and places as many complete rows as will fit. The modules are not vertically stretched. If the facade height is not an exact multiple of the module height, unused space can remain above the final row.
+The original module height is preserved. Lichen places as many complete rows as fit and leaves any remaining height above the final row empty. If the facade is shorter than one module, one full-height module is still placed.
 
-At least one row is placed, even when the facade is shorter than the selected module.
-
-#### Horizontal Stretch
+#### Horizontal placement
 
 **Stretch modules horizontally to fit facade** — **default**
 
-Lichen determines how many modules best fit the facade width, then scales them horizontally so the row exactly fills the facade from end to end.
-
-When horizontal stretching is enabled, horizontal alignment options are not used because the stretched modules already fill the available width.
+Lichen chooses a suitable number of modules and scales them horizontally so the row fills the complete facade width. Fixed-width placement and gap filler options are not used in this mode.
 
 **Preserve module width**
 
-Lichen keeps the original module width and places as many complete modules as will fit across the facade. The remaining width is handled using the selected **Horizontal Alignment** option.
+The facade module keeps its authored width. Lichen places as many complete modules as fit and distributes the remaining horizontal width using one of two modes:
 
-At least one module is placed, even when the facade is narrower than the selected module.
+**Centered** — **default fixed-width mode**
 
-#### Horizontal Alignment
+The module row is centred on the facade. The edge-gap relationship can be set to:
 
-These options are available when **Preserve module width** is selected.
+- **Edge gaps = half internal gap** — **default**. The gaps at the two ends are half the width of the gaps between modules.
+- **Edge gaps = internal gap**. All edge and internal gaps are equal.
 
-**Even spacing** — **default**
+**End-to-end**
 
-The unused width is divided into equal gaps before, between, and after the facade modules.
+The first and last modules align with the ends of the facade run and the remaining width is divided equally between the modules. When only one fixed-width module fits, it is centred because an end-to-end distribution is not possible with a single module.
 
-**Left**
+If the facade is narrower than one module, one full-width module is still placed.
 
-Modules begin at the left side of the facade and any unused width remains at the right.
+#### Gap fillers
 
-**Centre**
+**Generate gap fillers** — **off by default**
 
-The row of modules is centred on the facade, dividing the unused width equally between both ends.
+Available when module width is preserved. Gap fillers are editable wireframe block placeholders generated for horizontal gaps between adjacent facade modules. They are never generated between vertically stacked modules.
 
-**Right**
+The filler depth is derived from the selected facade block, using its maximum extent inside and outside the facade line. Separate gap definitions are created for different gap widths and module heights, and matching definitions are reused rather than overwritten.
 
-Modules finish at the right side of the facade and any unused width remains at the left.
+**Include edge fillers** — **off by default**
+
+Available when **Centered** placement and **Generate gap fillers** are both enabled. When checked, fillers are also created in the two centred edge gaps. When unchecked, only gaps between facade modules receive fillers.
+
+For **End-to-end** placement there are no intentional edge gaps, so this option is not used.
 
 #### Corner placeholders
 
 **Generate corner placeholders** — **off by default**
 
-When enabled, Lichen generates editable block placeholders wherever two placed facade runs meet at a vertical corner.
+Creates editable block placeholders wherever two placed facade runs meet at a supported vertical corner.
 
-Each placeholder is helper linework rather than finished corner geometry. In plan, it follows the two adjoining facade directions for **500 mm** from the corner and offsets **200 mm outward** from the building. The same closed outline is created at the bottom and top of the corresponding facade module span, with vertical helper lines connecting the two.
+Each placeholder uses helper linework rather than finished corner geometry. In plan it follows both adjoining facade directions for **500 mm**, offsets **200 mm outward**, and closes the resulting shape. The outline is repeated at the bottom and top of the corresponding facade-module span and connected with vertical helper lines.
 
 Corner placeholders:
 
-- are generated only where both adjoining faces actually receive facade modules;
-- are generated once per overlapping vertical facade-module span;
-- distinguish between convex and concave corners;
-- create separate definitions for different corner angles;
-- create separate definitions where the required corner height differs;
+- are generated only where both adjoining faces receive facade modules;
+- are created per overlapping vertical facade-module span;
+- distinguish convex and concave corners;
+- create separate definitions for different corner angles and required heights;
 - are associated with the selected facade module;
-- are not stretched after creation — the block definition is created at the required height;
-- reuse an existing matching corner definition if one already exists.
-
-Because matching corners are block instances, editing a corner master updates all instances using that same corner definition.
+- are created at their required height rather than vertically stretched;
+- reuse existing matching definitions so edited corner masters are preserved.
 
 #### Floor slabs
 
 **Generate floor slabs** — **off by default**
 
-When enabled, Lichen creates slab geometry from the lowest suitable horizontal face or faces of each selected volume.
+Creates slab geometry from the lowest suitable horizontal face or faces of each selected volume.
 
-The slab boundary follows the building footprint but is inset to account for any part of the selected facade module that extends inward from the facade line. This prevents generated slabs from unnecessarily overlapping the inward depth of the facade module.
+The slab boundary is inset by the facade module's inward depth so the slab does not unnecessarily overlap geometry extending inside the facade line.
 
-**Floor thickness** controls the slab thickness in millimetres.
-
-Default: **500 mm**
-
-The floor slab is extruded downward from the original bottom face elevation.
+**Floor thickness** defaults to **500 mm**. Floor slabs extrude downward from the original bottom-face elevation.
 
 #### Ceiling slabs
 
 **Generate ceiling slabs** — **off by default**
 
-When enabled, Lichen creates slab geometry from the highest suitable horizontal face or faces of each selected volume.
+Creates slab geometry from the highest suitable horizontal face or faces of each selected volume, using the same inward facade-depth offset as floor slabs.
 
-As with floor slabs, the slab boundary is inset by the inward depth of the selected facade module.
+**Ceiling thickness** defaults to **500 mm**. Ceiling slabs extrude downward from the original top-face elevation.
 
-**Ceiling thickness** controls the slab thickness in millimetres.
+### LichenCustom
 
-Default: **500 mm**
+`LichenCustom` bypasses the facade library and creates a project-specific facade module directly in the current Rhino document.
 
-The ceiling slab is extruded downward from the original top face elevation.
+The custom module is a wireframe block that represents its width, height, and depth relative to the facade line. Once created, it uses the same placement, corner, gap, slab, and master systems as a library facade.
+
+#### Custom facade settings
+
+**Name**
+
+Required. Lichen sanitises the entered name and creates a document-specific block named `Lichen_Custom_<Name>`.
+
+If a custom facade with the same name already exists and its original dimensions match, the existing definition is reused. If the dimensions differ, Lichen requires a different name. Custom facades are not added to the installed facade library.
+
+**Width** — default **3000 mm**
+
+Must be greater than 0 mm.
+
+**Height** — default **3500 mm**
+
+Must be greater than 0 mm.
+
+**Depth inside** — default **300 mm**
+
+Extends from the facade line into the building. May be 0 mm.
+
+**Depth outside** — default **0 mm**
+
+Extends from the facade line toward the exterior. May be 0 mm.
+
+The combined inside and outside depth must be greater than 0 mm.
+
+#### Custom facade placement
+
+Custom modules are always placed at their specified width and height. They are not horizontally or vertically stretched.
+
+Vertically, Lichen repeats as many complete modules as fit and leaves any remaining space at the top empty. If the facade is shorter than one module, one full module is still placed.
+
+Horizontally, choose:
+
+- **Centered**, with either half-width or equal-width edge gaps;
+- **End-to-end**, with equal internal gaps and no intentional edge gaps.
+
+`LichenCustom` also provides the same optional **gap fillers**, **edge fillers**, **corner placeholders**, **floor slabs**, and **ceiling slabs** described above. Floor and ceiling thickness controls are enabled only when their corresponding slab option is checked.
+
+The custom facade definition is created only after at least one valid building volume has been selected. Cancelling or selecting only unsupported geometry does not leave an unused custom facade block in the document.
+
+### Masters
+
+Lichen creates an editable master area away from the building geometry.
 
 #### Facade masters
 
-The first time a facade module is imported into a Rhino document, Lichen creates a master instance away from the building geometry.
-
-The master area provides a reference copy of the facade block together with:
+The first time a facade definition is created or imported, Lichen places a master instance inside a **10 m x 10 m** master cell. The cell includes:
 
 - the facade module name;
-- a marked facade line;
-- labels indicating the **outside** and **inside** directions.
+- a dotted facade line;
+- **outside** and **inside** labels.
 
-Facade masters are arranged in **10 m × 10 m** cells, with subsequent facade masters placed in rows below the previous masters.
+Facade masters are arranged vertically, with each new facade occupying the next cell downward.
 
-If the same facade module already exists in the document, Lichen reuses the existing block definition rather than importing another copy or creating another facade master.
+#### Corner and gap masters
 
-#### Corner masters
+New corner and gap definitions receive their own master cells to the right of their associated facade master. They are added sequentially across the row.
 
-When corner placeholders are enabled, each newly required corner definition receives its own master beside the associated facade master.
+Existing matching definitions and masters are reused. This allows the generated helper-line placeholders to be edited into project-specific facade, corner, or gap designs without those edits being overwritten on later runs.
 
-Corner masters are placed sequentially to the right of the facade master. Existing matching corner definitions and masters are reused rather than overwritten, allowing a placeholder master to be edited into a project-specific corner design without losing those edits when `LichenApply` is run again.
+### Generated layers
 
-#### Generated layers
+Lichen organises generated geometry beneath the top-level `Lichen` layer:
 
-Lichen organises generated geometry under a top-level `Lichen` layer:
+- `Lichen::Facades` — placed facade instances and custom facade helper geometry;
+- `Lichen::Corners` — corner placeholder instances and helper geometry;
+- `Lichen::Gaps` — horizontal gap filler instances and helper geometry;
+- `Lichen::Slabs::Floor` — generated floor slabs;
+- `Lichen::Slabs::Ceiling` — generated ceiling slabs;
+- `Lichen::Masters` — facade, corner, and gap master instances;
+- `Lichen::Masters::Admin` — master cells, labels, facade lines, and guide geometry.
 
-- `Lichen::Facades` — placed facade block instances
-- `Lichen::Corners` — placed corner placeholder instances and their helper geometry
-- `Lichen::Slabs::Floor` — generated floor slabs
-- `Lichen::Slabs::Ceiling` — generated ceiling slabs
-- `Lichen::Masters` — facade and corner master instances
-- `Lichen::Masters::Admin` — master-area boxes, labels, and guide geometry
+Imported library facade geometry retains its source layer structure beneath the Lichen hierarchy.
 
-Imported facade block geometry retains its source layer structure beneath the Lichen layer hierarchy.
+### Input geometry
 
-#### Input geometry
-
-Lichen is designed for simple building massing Breps with **planar vertical facade faces**.
+Both `LichenApply` and `LichenCustom` are designed for simple building massing Breps with **planar vertical facade faces**.
 
 - Facade faces must be planar and within approximately **1° of vertical**.
-- Curved facade faces are not currently supported.
-- Sloped facade faces are not treated as facade faces.
-- If a selected volume contains an unsupported curved facade face, the entire volume is skipped rather than partially processed.
-- If no planar vertical facade faces are found, the volume is skipped.
+- Curved facade faces are not supported.
+- A selected volume containing an unsupported curved facade face is skipped rather than partially processed.
+- Sloped faces are not treated as facade faces.
+- A volume with no planar vertical facade faces is skipped.
 - The footprint does not need to be rectangular. Polygonal, chamfered, stepped, and other straight-sided massing forms can be used as long as their facade faces meet the requirements above.
 
 ### LichenList
 
-`LichenList` opens the facade library in browse-only mode and lists the facade modules currently installed with Lichen. No geometry is generated.
+`LichenList` opens the installed facade library in browse-only mode. It does not generate geometry and does not list document-specific facades created with `LichenCustom`.
 
 ## Included Facades
 
 Lichen includes a small library of example facade modules. The library is intended to grow over time as additional modules are released.
 
-Each module has an authored width and height that Lichen uses when calculating repetition and stretching in `LichenApply`.
+Each library module has an authored width and height used by `LichenApply` when calculating repetition and stretching.
 
 ## Facade Library
 

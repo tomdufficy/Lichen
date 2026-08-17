@@ -18,11 +18,13 @@ namespace Lichen.UI
         private readonly RadioButton _verticalRepeatRadio;
         private readonly RadioButton _horizontalStretchRadio;
         private readonly RadioButton _horizontalPreserveRadio;
-        private readonly RadioButton _alignmentEvenRadio;
-        private readonly RadioButton _alignmentLeftRadio;
-        private readonly RadioButton _alignmentCentreRadio;
-        private readonly RadioButton _alignmentRightRadio;
-        private readonly DynamicLayout _alignmentLayout;
+        private readonly RadioButton _placementCenteredRadio;
+        private readonly RadioButton _placementEndToEndRadio;
+        private readonly RadioButton _edgeHalfRadio;
+        private readonly RadioButton _edgeEqualRadio;
+        private readonly DynamicLayout _fixedWidthLayout;
+        private readonly CheckBox _generateGapFillersCheckBox;
+        private readonly CheckBox _includeEdgeFillersCheckBox;
         private readonly CheckBox _generateFloorSlabsCheckBox;
         private readonly CheckBox _generateCeilingSlabsCheckBox;
         private readonly CheckBox _generateCornerPlaceholdersCheckBox;
@@ -34,28 +36,28 @@ namespace Lichen.UI
 
         public bool StretchVertically => _verticalStretchRadio.Checked;
         public bool StretchHorizontally => _horizontalStretchRadio.Checked;
+        public bool GenerateGapFillers =>
+            _horizontalPreserveRadio.Checked &&
+            _generateGapFillersCheckBox.Checked == true;
+        public bool IncludeEdgeGapFillers =>
+            GenerateGapFillers &&
+            _placementCenteredRadio.Checked &&
+            _includeEdgeFillersCheckBox.Checked == true;
         public bool GenerateFloorSlabs => _generateFloorSlabsCheckBox.Checked == true;
         public bool GenerateCeilingSlabs => _generateCeilingSlabsCheckBox.Checked == true;
         public bool GenerateCornerPlaceholders => _generateCornerPlaceholdersCheckBox.Checked == true;
         public double FloorSlabThicknessMm => _floorThicknessStepper.Value;
         public double CeilingSlabThicknessMm => _ceilingThicknessStepper.Value;
 
-        public HorizontalAlignmentMode HorizontalAlignment
-        {
-            get
-            {
-                if (_alignmentLeftRadio.Checked)
-                    return HorizontalAlignmentMode.Left;
+        public HorizontalPlacementMode HorizontalPlacement =>
+            _placementEndToEndRadio.Checked
+                ? HorizontalPlacementMode.EndToEnd
+                : HorizontalPlacementMode.Centered;
 
-                if (_alignmentCentreRadio.Checked)
-                    return HorizontalAlignmentMode.Centre;
-
-                if (_alignmentRightRadio.Checked)
-                    return HorizontalAlignmentMode.Right;
-
-                return HorizontalAlignmentMode.EvenSpacing;
-            }
-        }
+        public CenteredEdgeGapMode CenteredEdgeGaps =>
+            _edgeEqualRadio.Checked
+                ? CenteredEdgeGapMode.EqualToInternalGap
+                : CenteredEdgeGapMode.HalfInternalGap;
 
         public FacadeBrowserDialog(
             IReadOnlyList<FacadeModule> modules,
@@ -116,6 +118,40 @@ namespace Lichen.UI
                 Text = "Preserve module width"
             };
 
+            _placementCenteredRadio = new RadioButton
+            {
+                Text = "Centered",
+                Checked = true
+            };
+
+            _placementEndToEndRadio = new RadioButton(_placementCenteredRadio)
+            {
+                Text = "End-to-end"
+            };
+
+            _edgeHalfRadio = new RadioButton
+            {
+                Text = "Edge gaps = half internal gap",
+                Checked = true
+            };
+
+            _edgeEqualRadio = new RadioButton(_edgeHalfRadio)
+            {
+                Text = "Edge gaps = internal gap"
+            };
+
+            _generateGapFillersCheckBox = new CheckBox
+            {
+                Text = "Generate gap fillers",
+                Checked = false
+            };
+
+            _includeEdgeFillersCheckBox = new CheckBox
+            {
+                Text = "Include edge fillers",
+                Checked = false
+            };
+
             _generateFloorSlabsCheckBox = new CheckBox
             {
                 Text = "Generate floor slabs",
@@ -137,57 +173,26 @@ namespace Lichen.UI
             _floorThicknessStepper = CreateThicknessStepper();
             _ceilingThicknessStepper = CreateThicknessStepper();
 
-            _generateFloorSlabsCheckBox.CheckedChanged += delegate
-            {
-                UpdateSlabEnabledState();
-            };
-
-            _generateCeilingSlabsCheckBox.CheckedChanged += delegate
-            {
-                UpdateSlabEnabledState();
-            };
-
-            _alignmentEvenRadio = new RadioButton
-            {
-                Text = "Even spacing",
-                Checked = true
-            };
-
-            _alignmentLeftRadio = new RadioButton(_alignmentEvenRadio)
-            {
-                Text = "Left"
-            };
-
-            _alignmentCentreRadio = new RadioButton(_alignmentEvenRadio)
-            {
-                Text = "Centre"
-            };
-
-            _alignmentRightRadio = new RadioButton(_alignmentEvenRadio)
-            {
-                Text = "Right"
-            };
-
-            _alignmentLayout = new DynamicLayout
+            _fixedWidthLayout = new DynamicLayout
             {
                 Spacing = new Size(5, 4)
             };
+            _fixedWidthLayout.Add(CreateHeadingLabel("Horizontal Placement"));
+            _fixedWidthLayout.Add(_placementCenteredRadio);
+            _fixedWidthLayout.Add(_edgeHalfRadio);
+            _fixedWidthLayout.Add(_edgeEqualRadio);
+            _fixedWidthLayout.Add(_placementEndToEndRadio);
+            _fixedWidthLayout.Add(_generateGapFillersCheckBox);
+            _fixedWidthLayout.Add(_includeEdgeFillersCheckBox);
 
-            _alignmentLayout.Add(CreateHeadingLabel("Horizontal Alignment"));
-            _alignmentLayout.Add(_alignmentEvenRadio);
-            _alignmentLayout.Add(_alignmentLeftRadio);
-            _alignmentLayout.Add(_alignmentCentreRadio);
-            _alignmentLayout.Add(_alignmentRightRadio);
+            _horizontalStretchRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
+            _horizontalPreserveRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
+            _placementCenteredRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
+            _placementEndToEndRadio.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
+            _generateGapFillersCheckBox.CheckedChanged += delegate { UpdateHorizontalEnabledState(); };
 
-            _horizontalStretchRadio.CheckedChanged += delegate
-            {
-                UpdateAlignmentEnabledState();
-            };
-
-            _horizontalPreserveRadio.CheckedChanged += delegate
-            {
-                UpdateAlignmentEnabledState();
-            };
+            _generateFloorSlabsCheckBox.CheckedChanged += delegate { UpdateSlabEnabledState(); };
+            _generateCeilingSlabsCheckBox.CheckedChanged += delegate { UpdateSlabEnabledState(); };
 
             _applyButton = new Button
             {
@@ -236,7 +241,7 @@ namespace Lichen.UI
                 selectedPanel.Add(CreateHeadingLabel("Horizontal Stretch"));
                 selectedPanel.Add(_horizontalStretchRadio);
                 selectedPanel.Add(_horizontalPreserveRadio);
-                selectedPanel.Add(_alignmentLayout);
+                selectedPanel.Add(_fixedWidthLayout);
 
                 selectedPanel.Add(CreateHeadingLabel("Corners"));
                 selectedPanel.Add(_generateCornerPlaceholdersCheckBox);
@@ -296,7 +301,7 @@ namespace Lichen.UI
             mainLayout.EndHorizontal();
 
             Content = mainLayout;
-            UpdateAlignmentEnabledState();
+            UpdateHorizontalEnabledState();
             UpdateSlabEnabledState();
         }
 
@@ -337,14 +342,18 @@ namespace Lichen.UI
             };
         }
 
-        private void UpdateAlignmentEnabledState()
+        private void UpdateHorizontalEnabledState()
         {
-            bool enabled = _horizontalPreserveRadio.Checked;
+            bool fixedWidth = _horizontalPreserveRadio.Checked;
+            bool centered = fixedWidth && _placementCenteredRadio.Checked;
+            bool gaps = fixedWidth && _generateGapFillersCheckBox.Checked == true;
 
-            _alignmentEvenRadio.Enabled = enabled;
-            _alignmentLeftRadio.Enabled = enabled;
-            _alignmentCentreRadio.Enabled = enabled;
-            _alignmentRightRadio.Enabled = enabled;
+            _placementCenteredRadio.Enabled = fixedWidth;
+            _placementEndToEndRadio.Enabled = fixedWidth;
+            _edgeHalfRadio.Enabled = centered;
+            _edgeEqualRadio.Enabled = centered;
+            _generateGapFillersCheckBox.Enabled = fixedWidth;
+            _includeEdgeFillersCheckBox.Enabled = gaps && centered;
         }
 
         private void UpdateSlabEnabledState()
