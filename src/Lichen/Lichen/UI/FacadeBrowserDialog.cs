@@ -60,7 +60,7 @@ namespace Lichen.UI
             bool browseOnly = true)
         {
             Title = "Lichen Facade Library";
-            ClientSize = new Size(1100, 720);
+            ClientSize = new Size(1200, 1000);
             Padding = new Padding(10);
             Resizable = true;
 
@@ -184,7 +184,8 @@ namespace Lichen.UI
             _applyButton = new Button
             {
                 Text = "Apply",
-                Enabled = false
+                Enabled = false,
+                Size = new Size(100, 28)
             };
 
             _applyButton.Click += delegate
@@ -249,7 +250,8 @@ namespace Lichen.UI
 
             Button closeButton = new Button
             {
-                Text = browseOnly ? "Close" : "Cancel"
+                Text = browseOnly ? "Close" : "Cancel",
+                Size = new Size(100, 28)
             };
 
             closeButton.Click += delegate
@@ -275,11 +277,11 @@ namespace Lichen.UI
 
             mainLayout.BeginHorizontal();
             mainLayout.Add(null, true);
-            mainLayout.Add(closeButton);
 
             if (!browseOnly)
                 mainLayout.Add(_applyButton);
 
+            mainLayout.Add(closeButton);
             mainLayout.EndHorizontal();
 
             Content = mainLayout;
