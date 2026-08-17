@@ -9,10 +9,13 @@ namespace Lichen.Core
 {
     public class BlockManager
     {
-        private const double BoxSize = 10000.0;
-        private const double BoxStartY = -25000.0;
-        private const double MasterTextHeight = 500.0;
-        private const double AdminTextHeight = 200.0;
+        private const double BoxSizeMm = 10000.0;
+        private const double BoxStartYMm = -25000.0;
+        private const double MasterTextHeightMm = 500.0;
+        private const double AdminTextHeightMm = 200.0;
+        private const double LabelOffsetMm = 500.0;
+        private const double LabelMarginMm = 200.0;
+        private const double DottedSegmentLengthMm = 200.0;
 
         // Lichen palette
         private static readonly Color LichenMist = ColorTranslator.FromHtml("#F3F4F0");
@@ -97,6 +100,26 @@ namespace Lichen.Core
                 return -1;
             }
 
+            UnitSystem sourceUnits = moduleFile.Settings.ModelUnitSystem;
+            UnitSystem targetUnits = doc.ModelUnitSystem;
+
+            if (sourceUnits == UnitSystem.None)
+            {
+                RhinoApp.WriteLine(
+                    "Lichen: facade {0} has no model units defined.",
+                    module.Name);
+
+                return -1;
+            }
+
+            double unitScale = UnitConverter.ScaleBetween(
+                sourceUnits,
+                targetUnits);
+
+            Transform unitTransform = Transform.Scale(
+                Point3d.Origin,
+                unitScale);
+
             int lichenIdx = EnsureLayer(doc, "Lichen", LichenGreen, -1);
 
             Layer sourceLichenLayer = null;
@@ -157,7 +180,18 @@ namespace Lichen.Core
                 var attr = obj.Attributes.Duplicate();
                 attr.LayerIndex = remapped;
 
-                geometries.Add(obj.Geometry.Duplicate());
+                GeometryBase geometry = obj.Geometry.Duplicate();
+
+                if (!geometry.Transform(unitTransform))
+                {
+                    RhinoApp.WriteLine(
+                        "Lichen: failed to scale geometry in {0}.",
+                        module.Name);
+
+                    continue;
+                }
+
+                geometries.Add(geometry);
                 attributes.Add(attr);
             }
 
@@ -186,31 +220,46 @@ namespace Lichen.Core
 
         // ─── master placement ─────────────────────────────────────────────────────
 
+        // ─── master placement ─────────────────────────────────────────────────────
+
         public static void PlaceMaster(RhinoDoc doc, FacadeModule module, int blockDefIndex)
         {
             EnsureLayers(doc, out int mastersLayerIndex, out int adminLayerIndex);
 
+            double boxSize = UnitConverter.MillimetersToModel(doc, BoxSizeMm);
+            double boxStartY = UnitConverter.MillimetersToModel(doc, BoxStartYMm);
+            double masterTextHeight = UnitConverter.MillimetersToModel(doc, MasterTextHeightMm);
+            double adminTextHeight = UnitConverter.MillimetersToModel(doc, AdminTextHeightMm);
+            double labelOffset = UnitConverter.MillimetersToModel(doc, LabelOffsetMm);
+            double labelMargin = UnitConverter.MillimetersToModel(doc, LabelMarginMm);
+
             int masterCount = CountExistingMasters(doc, mastersLayerIndex);
 
-            double boxMinX = 0;
-            double boxMaxX = BoxSize;
-            double boxMinY = BoxStartY - (masterCount * BoxSize);
-            double boxMaxY = boxMinY + BoxSize;
+            double boxMinX = 0.0;
+            double boxMaxX = boxSize;
+            double boxMinY = boxStartY - (masterCount * boxSize);
+            double boxMaxY = boxMinY + boxSize;
 
             var boxPts = new Point3d[]
             {
-                new Point3d(boxMinX, boxMinY, 0),
-                new Point3d(boxMaxX, boxMinY, 0),
-                new Point3d(boxMaxX, boxMaxY, 0),
-                new Point3d(boxMinX, boxMaxY, 0),
-                new Point3d(boxMinX, boxMinY, 0)
+        new Point3d(boxMinX, boxMinY, 0),
+        new Point3d(boxMaxX, boxMinY, 0),
+        new Point3d(boxMaxX, boxMaxY, 0),
+        new Point3d(boxMinX, boxMaxY, 0),
+        new Point3d(boxMinX, boxMinY, 0)
             };
+
             var boxCurve = new Rhino.Geometry.Polyline(boxPts).ToNurbsCurve();
 
-            var adminAttribs = new ObjectAttributes { LayerIndex = adminLayerIndex };
+            var adminAttribs = new ObjectAttributes
+            {
+                LayerIndex = adminLayerIndex
+            };
+
             doc.Objects.AddCurve(boxCurve, adminAttribs);
 
-            double facadeY = boxMinY + BoxSize / 2.0;
+            double facadeY = boxMinY + boxSize / 2.0;
+
             var facadeLine = new LineCurve(
                 new Point3d(boxMinX, facadeY, 0),
                 new Point3d(boxMaxX, facadeY, 0));
@@ -221,39 +270,54 @@ namespace Lichen.Core
                 LinetypeSource = ObjectLinetypeSource.LinetypeFromObject,
                 LinetypeIndex = GetOrCreateDottedLinetype(doc)
             };
+
             doc.Objects.AddCurve(facadeLine, lineAttribs);
 
-            double labelOffset = 500.0;
+            AddText(
+                doc,
+                "outside",
+                new Point3d(boxMinX + labelMargin, facadeY + labelOffset, 0),
+                adminTextHeight,
+                adminLayerIndex);
 
-            AddText(doc, "outside",
-                new Point3d(boxMinX + 200, facadeY + labelOffset, 0),
-                AdminTextHeight, adminLayerIndex);
+            AddText(
+                doc,
+                "inside",
+                new Point3d(boxMinX + labelMargin, facadeY - labelOffset, 0),
+                adminTextHeight,
+                adminLayerIndex);
 
-            AddText(doc, "inside",
-                new Point3d(boxMinX + 200, facadeY - labelOffset, 0),
-                AdminTextHeight, adminLayerIndex);
-
-            AddText(doc, module.Name,
-                new Point3d(boxMinX + 200, boxMaxY - 200, 0),
-                MasterTextHeight, adminLayerIndex);
+            AddText(
+                doc,
+                module.Name,
+                new Point3d(boxMinX + labelMargin, boxMaxY - labelMargin, 0),
+                masterTextHeight,
+                adminLayerIndex);
 
             var blockDef = doc.InstanceDefinitions[blockDefIndex];
             var bbox = BoundingBox.Empty;
+
             foreach (var obj in blockDef.GetObjects())
                 bbox.Union(obj.Geometry.GetBoundingBox(true));
 
             double moduleWidth = bbox.Max.X - bbox.Min.X;
-            double offsetX = boxMinX + (BoxSize - moduleWidth) / 2.0 - bbox.Min.X;
+            double offsetX = boxMinX + (boxSize - moduleWidth) / 2.0 - bbox.Min.X;
             double offsetY = facadeY;
             double offsetZ = -bbox.Min.Z;
 
-            var masterAttribs = new ObjectAttributes { LayerIndex = mastersLayerIndex };
+            var masterAttribs = new ObjectAttributes
+            {
+                LayerIndex = mastersLayerIndex
+            };
+
             doc.Objects.AddInstanceObject(
                 blockDefIndex,
                 Transform.Translation(offsetX, offsetY, offsetZ),
                 masterAttribs);
 
-            RhinoApp.WriteLine("Lichen: placed master for {0}", module.Name);
+            RhinoApp.WriteLine(
+                "Lichen: placed master for {0}",
+                module.Name);
         }
 
         // ─── helpers ──────────────────────────────────────────────────────────────
@@ -295,8 +359,13 @@ namespace Lichen.Core
             }
 
             var linetype = new Linetype { Name = "Lichen_Dotted" };
-            linetype.AppendSegment(200.0, true);
-            linetype.AppendSegment(200.0, false);
+            
+            double segmentLength = UnitConverter.MillimetersToModel(
+                doc,
+                DottedSegmentLengthMm);
+
+            linetype.AppendSegment(segmentLength, true);
+            linetype.AppendSegment(segmentLength, false);
 
             int index = doc.Linetypes.Add(linetype);
             return index >= 0 ? index : 0;

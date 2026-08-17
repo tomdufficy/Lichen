@@ -30,20 +30,32 @@ namespace Lichen.Core
             if (!options.GenerateFloorSlabs && !options.GenerateCeilingSlabs)
                 return;
 
-            double mmToModel = RhinoMath.UnitScale(
-                UnitSystem.Millimeters,
-                doc.ModelUnitSystem);
-
             if (options.GenerateFloorSlabs)
             {
-                double thickness = options.FloorThicknessMm * mmToModel;
-                CreateSlabsAtExtreme(doc, volume, thickness, facadeDepth, isFloor: true);
+                double thickness = UnitConverter.MillimetersToModel(
+                    doc,
+                    options.FloorThicknessMm);
+
+                CreateSlabsAtExtreme(
+                    doc,
+                    volume,
+                    thickness,
+                    facadeDepth,
+                    isFloor: true);
             }
 
             if (options.GenerateCeilingSlabs)
             {
-                double thickness = options.CeilingThicknessMm * mmToModel;
-                CreateSlabsAtExtreme(doc, volume, thickness, facadeDepth, isFloor: false);
+                double thickness = UnitConverter.MillimetersToModel(
+                    doc,
+                    options.CeilingThicknessMm);
+
+                CreateSlabsAtExtreme(
+                    doc,
+                    volume,
+                    thickness,
+                    facadeDepth,
+                    isFloor: false);
             }
         }
 
